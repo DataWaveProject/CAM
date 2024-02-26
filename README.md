@@ -1,3 +1,21 @@
+## Warning
+This is a fork of the [main CAM repository](https://github.com/ESCOMP/CAM) by ESCOMP for the purposes of coupling the [gravity wave parameterisations/emulations developed by the DataWave project](https://github.com/DataWaveProject/newCAM_emulation).
+
+This work uses the 6.3.139 release of CAM.
+
+It can be built on Derecho using:
+```
+git clone https://github.com/DataWaveProject/CAM  CAM
+cd CAM
+git checkout cam6_3_139
+./manage_externals/checkout_externals
+```
+
+It will be evaluated using the FMTHIST benchmark which can be run on Derecho using:
+```
+./create_newcase --compset FMTHIST --res ne30pg3_ne30pg3_mg17 --case ../../cases/MMdiags --project XXXXXXX --machine derecho
+```
+
 # CAM: The Community Atmosphere Model
 
 CAM code is stored in this repository on branches other than main.  The details are explained below.
