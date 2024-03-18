@@ -1326,6 +1326,16 @@ Whether or not to enable gravity waves produced by deep convection.
 Default: set by build-namelist.
 </entry>
 
+<entry id="gw_convect_dp_ml" type="char*16" category="gw_drag"
+       group="phys_ctl_nl" valid_values="off,on,bothoff,bothon" >
+Whether or not to use the ML scheme for gravity waves produced by deep convection.
+   'off'     no
+   'on'      yes
+   'bothoff' run both but use default for simulation
+   'bothon'  run both but use ML for simulation
+Default: off
+</entry>
+
 <entry id="use_gw_convect_sh" type="logical" category="gw_drag"
        group="phys_ctl_nl" valid_values="" >
 Whether or not to enable gravity waves produced by shallow convection.
