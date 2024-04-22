@@ -67,7 +67,7 @@ modify `cime/scripts/Tools/Makefile` line 567 to set the environment variable FT
 
 You can now run, from within the CESM root directory,
 ```
-./manage_externals/checykout_externals
+./manage_externals/checkout_externals
 ```
 to fetch the external components.
 
