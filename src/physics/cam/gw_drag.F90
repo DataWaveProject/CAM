@@ -192,6 +192,10 @@ module gw_drag
   logical :: gw_top_taper=.false.
   real(r8), pointer :: vramp(:)=>null()
 
+  ! Switch for using ML GW parameterisation for deep convection source
+  logical :: gw_convect_dp_ml = .false.
+  logical :: gw_convect_dp_ml_compare = .false.
+
 !==========================================================================
 contains
 !==========================================================================
@@ -232,7 +236,8 @@ subroutine gw_drag_readnl(nlfile)
        rdg_gamma_cd_llb, trpd_leewv_rdg_gamma, bnd_rdggm, &
        gw_oro_south_fac, gw_limit_tau_without_eff, &
        gw_lndscl_sgh, gw_prndl, gw_apply_tndmax, gw_qbo_hdepth_scaling, &
-       gw_top_taper, front_gaussian_width
+       gw_top_taper, front_gaussian_width, &
+       gw_convect_dp_ml, gw_convect_dp_ml_compare
   !----------------------------------------------------------------------
 
   if (use_simple_phys) return
