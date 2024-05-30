@@ -341,6 +341,12 @@ subroutine gw_drag_readnl(nlfile)
   call mpi_bcast(front_gaussian_width, 1, mpi_real8, mstrid, mpicom, ierr)
   if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: front_gaussian_width")
 
+  call mpi_bcast(gw_convect_dp_ml, 1, mpi_logical, mstrid, mpicom, ierr)
+  if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml")
+
+  call mpi_bcast(gw_convect_dp_ml_compare, 1, mpi_logical, mstrid, mpicom, ierr)
+  if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml_compare")
+
   ! Check if fcrit2 was set.
   call shr_assert(fcrit2 /= unset_r8, &
        "gw_drag_readnl: fcrit2 must be set via the namelist."// &
