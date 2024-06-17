@@ -1294,6 +1294,13 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   integer :: m                      ! dummy integers
   real(r8) :: qtgw(state%ncol,pver,pcnst) ! constituents tendencies
 
+  ! Temporary tendencies used with ml convect_deep scheme switching
+  ! Used to store results from both schemes for comparison
+  real(r8) :: ttgw_temp(state%ncol,pver) ! temperature tendency
+  real(r8) :: utgw_temp(state%ncol,pver) ! zonal wind tendency
+  real(r8) :: vtgw_temp(state%ncol,pver) ! meridional wind tendency
+  real(r8) :: qtgw_temp(state%ncol,pver,pcnst) ! temporary constituents tendencies
+
   ! Reynolds stress for waves propagating in each cardinal direction.
   real(r8) :: taucd(state%ncol,pver+1,4)
 
@@ -1491,13 +1498,47 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
           u, v, ttend_dp(:ncol,:), zm, src_level, tend_level, tau, &
           ubm, ubi, xv, yv, c, hdepth, maxq0)
 
-     ! Solve for the drag profile with Beres source spectrum.
-     call gw_drag_prof(ncol, band_mid, p, src_level, tend_level, dt, &
-          t, vramp,    &
-          piln, rhoi,       nm,   ni, ubm,  ubi,  xv,    yv,   &
-          effgw,   c,       kvtt, q,  dse,  tau,  utgw,  vtgw, &
-          ttgw, qtgw, egwdffi,  gwut, dttdf, dttke,            &
-          lapply_effgw_in=gw_apply_tndmax)
+     if ((.not. gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
+        ! Solve for the drag profile with Beres source spectrum.
+        call gw_drag_prof(ncol, band_mid, p, src_level, tend_level, dt, &
+             t, vramp,    &
+             piln, rhoi,       nm,   ni, ubm,  ubi,  xv,    yv,   &
+             effgw,   c,       kvtt, q,  dse,  tau,  utgw_temp,  vtgw_temp, &
+             ttgw_temp, qtgw_temp, egwdffi,  gwut, dttdf, dttke,            &
+             lapply_effgw_in=gw_apply_tndmax)
+
+        if (.not. gw_convect_dp_ml) then
+            ! Save the results to apply to ptend for simulation updates
+            qtgw = qtgw_temp
+            ttgw = ttgw_temp
+            utgw = utgw_temp
+            vtgw = vtgw_temp
+        end if
+     end if
+
+     if ((gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
+        if (masterproc) then
+           write(iulog,*) "Using the ML scheme for convective gravity waves."
+        end if
+
+        ! Solve for the drag profile with Beres source spectrum.
+        ! Placeholder for ML scheme
+        call gw_drag_prof(ncol, band_mid, p, src_level, tend_level, dt, &
+             t, vramp,    &
+             piln, rhoi,       nm,   ni, ubm,  ubi,  xv,    yv,   &
+             effgw,   c,       kvtt, q,  dse,  tau,  utgw_temp,  vtgw_temp, &
+             ttgw_temp, qtgw_temp, egwdffi,  gwut, dttdf, dttke,            &
+             lapply_effgw_in=gw_apply_tndmax)
+
+        if (gw_convect_dp_ml) then
+            ! Save the results to apply to ptend for simulation updates
+            qtgw = qtgw_temp  ! in the ml scheme there is no qtgw so use qtgw = 0.0
+            ttgw = ttgw_temp  ! in the ml scheme there is no ttgw so use ttgw = 0.0
+            utgw = utgw_temp
+            vtgw = vtgw_temp
+            ! in the ml scheme there is not egwdffi set, so use egwdffi = 0.0
+        end if
+     end if
 
      ! Project stress into directional components.
      taucd = calc_taucd(ncol, band_mid%ngwv, tend_level, tau, c, xv, yv, ubi)
