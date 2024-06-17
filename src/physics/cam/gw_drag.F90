@@ -29,6 +29,8 @@ module gw_drag
   use cam_logfile,    only: iulog
   use cam_abortutils, only: endrun
 
+  use ftorch
+
   use ref_pres,       only: do_molec_diff, nbot_molec, press_lim_idx
   use physconst,      only: cpair
 
@@ -1413,6 +1415,17 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   real(r8) :: zm(state%ncol,pver)
   real(r8) :: zi(state%ncol,pver+1)
   !------------------------------------------------------------------------
+
+  type(torch_tensor), dimension(1) :: in_tensors
+  type(torch_module) :: gw_convect_dp_nn
+
+  gw_convect_dp_nn = torch_module_load(gw_convect_dp_ml_net)
+
+  if (masterproc) then
+     write(iulog,*) 'Made a torch tensor and loaded a net!'
+  endif
+  call torch_tensor_delete(in_tensors(1))
+  call torch_module_delete(gw_convect_dp_nn)
 
   ! Make local copy of input state.
   call physics_state_copy(state, state1)
