@@ -1522,7 +1522,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
         end if
 
         ! Solve for the drag profile with Beres source spectrum.
-        ! Placeholder for ML scheme
+        ! Placeholder to be replaced with the ML scheme
         call gw_drag_prof(ncol, band_mid, p, src_level, tend_level, dt, &
              t, vramp,    &
              piln, rhoi,       nm,   ni, ubm,  ubi,  xv,    yv,   &
@@ -1532,6 +1532,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
 
         if (gw_convect_dp_ml) then
             ! Save the results to apply to ptend for simulation updates
+            ! TODO: Check how to handle tendencies not output by ML scheme
             qtgw = qtgw_temp  ! in the ml scheme there is no qtgw so use qtgw = 0.0
             ttgw = ttgw_temp  ! in the ml scheme there is no ttgw so use ttgw = 0.0
             utgw = utgw_temp
@@ -1544,11 +1545,13 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
      taucd = calc_taucd(ncol, band_mid%ngwv, tend_level, tau, c, xv, yv, ubi)
 
      !  add the diffusion coefficients
+     ! TODO: Check how to handle egwdffi not output by ML scheme
      do k = 1, pver+1
         egwdffi_tot(:,k) = egwdffi_tot(:,k) + egwdffi(:,k)
      end do
 
      ! Store constituents tendencies
+     ! TODO: Check how to handle qtgw not output by ML scheme
      do m=1, pcnst
         do k = 1, pver
            ptend%q(:ncol,k,m) = ptend%q(:ncol,k,m) + qtgw(:,k,m)
@@ -1568,6 +1571,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
 
      ! Find energy change in the current state, and use fixer to apply
      ! the difference in lower levels.
+     ! TODO: Check how to handle ttgw not output by ML scheme
      call energy_change(dt, p, u, v, ptend%u(:ncol,:), &
           ptend%v(:ncol,:), ptend%s(:ncol,:)+ttgw, de)
      call energy_fixer(tend_level, p, de-flx_heat(:ncol), ttgw)
