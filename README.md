@@ -7,65 +7,81 @@ The main working branch for this project is `datawave_ml` which was originally b
 from the `cam6_3_139` tag.
 
 
-## Using this model in a CESM Run
+## Using this model
 
-### Obtaining CESM
+### Obtaining CAM
 
-Clone a copy of CESM from git and checkout the `cesm2.1.5` tag on which this work is based:
+Clone a copy of this repository from git and ensure you checkout the `datawave_ml`
+branch on which this work is based:
 ```
-git clone https://github.com/escomp/cesm.git my_cesm_sandbox_2_1
-cd my_cesm_sandbox_2_1/
-git checkout cesm2.1.5
+git clone https://github.com/DataWaveProject/CAM.git
+cd CAM
+git checkout datawave_ml
 ```
-
-### Setting CAM version in CESM
-
-To use this model in a CESM run you need to modify the `Externals.cfg` file in the
-main CESM directory to replace the CAM entry with:
-```
-[cam]
-branch = datawave_ml
-protocol = git
-repo_url = https://github.com/DataWaveProject/CAM
-local_path = components/cam
-externals = Externals_CAM.cfg
-required = True
-```
-This will pull the `datawave_cam` branch of this repo in as the CAM component.
+This branch is built upon the `cam6_3_139` tag from the
+[main ESMCOMP/CAM repository](https://github.com/ESCOMP/CAM).
 
 ### Preparing FTorch and setting the CIME component in CESM
 
 We also need to build and link _FTorch_ which will allow us to use our PyTorch-based
-neural nets in CAM/CESM. This has two steps.
+neural nets in CAM. This has two steps.
 
-First modify again the `Externals.cfg` file in the main CESM directory to
+#### Building FTorch
+
+You need to build _FTorch_ locally on the system following the instructions
+[in the documentation](https://github.com/Cambridge-ICCS/FTorch).
+
+Note that if building on Derecho `libtorch` should be loaded using
+```
+module load libtorch/2.1.2
+```
+and used to build _FTorch_.\
+Further, for compatibility with CAM we need to be specific about the compilers we
+load. The following sequence of modules are required to build compatible FTorch on
+Derecho:
+```
+module load ncarenv-basic/23.06
+module load ncarenv/23.06
+module load intel/2023.0.0
+module load cmake
+module load cuda/11.7.1
+```
+FTorch can then be built and installed from `/path/to/ftorch/src/build/` as described in the
+documentation with:
+```
+cmake  .. \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_Fortran_COMPILER=ifort \
+  -DCMAKE_C_COMPILER=icc \
+  -DCMAKE_CXX_COMPILER=icpc \
+  -DCMAKE_PREFIX_PATH=/glade/u/apps/opt/libtorch/2.1.2 \
+  -DCMAKE_INSTALL_PREFIX=../../bin/ftorch_intel/
+
+cmake --build . --target install
+```
+This will build FTorch and install it to `/path/to/ftorch/bin/ftorch_intel`.
+
+#### Obtaining _FTorch_-compatible CIME
+
+We also need to use a version of the CIME build system that is capable of linking
+our code to FTorch.
+
+To do this modify the `Externals.cfg` file in the main CAM directory to
 replace the CIME entry with:
 ```
 [cime]
-branch = ftorch_forpy_cime
+branch = ftorch_gw
 protocol = git
 repo_url = https://github.com/Cambridge-ICCS/cime_je
 local_path = cime
 required = True
 ```
 which is the [ICCS fork](https://github.com/Cambridge-ICCS/cime_je) of CIME
-that allows CESM to be built with FTorch.
-
-In addition to this you also need to build _FTorch_ locally on the system
-following the instructions
-[in the documentation](https://github.com/Cambridge-ICCS/FTorch).\
-Note that if building on Derecho `libtorch` should be loaded using
-```
-module load libtorch/2.1.2
-```
-and used to build _FTorch_.
-
-After checking out the externals ([see below](#checkout-externals)) you will need to
-modify `cime/scripts/Tools/Makefile` line 567 to set the environment variable FTORCH_LOC to the location of the FTorch library on your system
+that allows components to be built with FTorch.
 
 ### Checkout externals
 
-You can now run, from within the CESM root directory,
+You can now run, from within the CAM root directory,
 ```
 ./manage_externals/checkout_externals
 ```
@@ -78,11 +94,16 @@ as [described above](#preparing-ftorch-and-setting-the-cime-component-in-cesm)
 
 Details on creating a case can be found
 [here](https://ncar.github.io/CAM/doc/build/html/CAM6.0_users_guide/building-and-running-cam.html) on the NCAR website.
-For this work we are using the gate III testcase which can be set up by running:
+For this work we are using the following testcase which can be set up by running:
 ```
 ./create_newcase --case <path_to_testcase_directory> --compset FMTHIST --res ne30pg3_ne30pg3_mg17 --project XXXXXXX --machine derecho
 ```
-from `<cesm_root>/cime/scripts/`.
+from `CAM/cime/scripts/`.
+
+You can then navigate to `<path_to_testcase_directory>`.
+To couple to FTorch modify `Tools/Makefile` line 600 to set the environment variable
+FTORCH_LIB to the location of the FTorch library on your system (defined above as
+`/path/to/ftorch/bin/ftorch_intel`).
 
 Once this has been done then edit `user_nl_cam` in the case directory as required.
 This is a CAM namelist generated from the default for the case.
