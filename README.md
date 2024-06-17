@@ -73,15 +73,16 @@ On Derecho this is `/path/to/ftorch/bin/ftorch_intel` as defined below in
 
 #### Setting up case details
 
-Once this has been done then edit `user_nl_cam` in the case directory as required.
-This is a CAM namelist generated from the default for the case.
+We can now run `./case.setup` from within the case directory.
+Once this has been done then edit the generated `user_nl_cam` in the case directory
+as required.
 Add the following lines:
 
-#. `gw_convect_dp_ml = 'on'`\
+#. `gw_convect_dp_ml='on'`\
     This is the switch to use our new ML convective-gw scheme instead of the default.\
     Other options are `'off'` (default - use original), `'bothoff'` (run both schemes
     but use default for simulation), and `'bothon'` (run both but use ML for simulation).
-#. `convect_dp_ml_model = '<PATH/TO/MODEL.pt>'`\
+#. `gw_convect_dp_ml_net='<PATH/TO/MODEL.pt>'`\
     The path to the your saved PyTorch model.
 
 Also consider adding:
@@ -90,7 +91,7 @@ fincl<n> = 'MYVAR'
 ```
 to generate output diagnostics of variables as desired.
 
-We can then run `./case.setup` and `./case.build` from within the case directory.
+We can then run `./case.build` from within the case directory to build the model.
 
 The case can be run with `./case.submit` from the case directory.
 
