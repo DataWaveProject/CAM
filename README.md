@@ -28,56 +28,20 @@ neural nets in CAM. This has two steps.
 
 #### Building FTorch
 
-You need to build _FTorch_ locally on the system following the instructions
+You need to build and install _FTorch_ locally on the system following the instructions
 [in the documentation](https://github.com/Cambridge-ICCS/FTorch).
+Note the location of the install as this will be required later when building CAM.
 
-Note that if building on Derecho `libtorch` should be loaded using
-```
-module load libtorch/2.1.2
-```
-and used to build _FTorch_.\
-Further, for compatibility with CAM we need to be specific about the compilers we
-load. The following sequence of modules are required to build compatible FTorch on
-Derecho:
-```
-module load ncarenv-basic/23.06
-module load ncarenv/23.06
-module load intel/2023.0.0
-module load cmake
-module load cuda/11.7.1
-```
-FTorch can then be built and installed from `/path/to/ftorch/src/build/` as described in the
-documentation with:
-```
-cmake  .. \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_Fortran_COMPILER=ifort \
-  -DCMAKE_C_COMPILER=icc \
-  -DCMAKE_CXX_COMPILER=icpc \
-  -DCMAKE_PREFIX_PATH=/glade/u/apps/opt/libtorch/2.1.2 \
-  -DCMAKE_INSTALL_PREFIX=../../bin/ftorch_intel/
+For specifics on building FTorch on Derecho to be compatible with CAM see the section
+[_FTorch_ on Derecho](#ftorch-on-derecho) below.
 
-cmake --build . --target install
-```
-This will build FTorch and install it to `/path/to/ftorch/bin/ftorch_intel`.
 
 #### Obtaining _FTorch_-compatible CIME
 
-We also need to use a version of the CIME build system that is capable of linking
-our code to FTorch.
-
-To do this modify the `Externals.cfg` file in the main CAM directory to
-replace the CIME entry with:
-```
-[cime]
-branch = ftorch_gw
-protocol = git
-repo_url = https://github.com/Cambridge-ICCS/cime_je
-local_path = cime
-required = True
-```
-which is the [ICCS fork](https://github.com/Cambridge-ICCS/cime_je) of CIME
-that allows components to be built with FTorch.
+This fork of CAM will use an FTorch-compatible version of the CIME buildsystem.
+This is specified under the `[cime]` section of the `Externals.cfg` file in the
+main CAM directory. For more information see
+[_FTorch_-compatible CIME](#ftorch-compatible-cime) below.
 
 ### Checkout externals
 
@@ -86,9 +50,6 @@ You can now run, from within the CAM root directory,
 ./manage_externals/checkout_externals
 ```
 to fetch the external components.
-
-Once this is complete remember to set the location of FTorch in the CIME Makefile
-as [described above](#preparing-ftorch-and-setting-the-cime-component-in-cesm)
 
 ### Creating and running a case
 
@@ -100,10 +61,17 @@ For this work we are using the following testcase which can be set up by running
 ```
 from `CAM/cime/scripts/`.
 
-You can then navigate to `<path_to_testcase_directory>`.
+You can then navigate to the case directory at `<path_to_testcase_directory>`.
+
+#### Building with _FTorch_
+
 To couple to FTorch modify `Tools/Makefile` line 600 to set the environment variable
-FTORCH_LIB to the location of the FTorch library on your system (defined above as
-`/path/to/ftorch/bin/ftorch_intel`).
+FTORCH_LIB to the location of the FTorch library on your system.
+
+On Derecho this is `/path/to/ftorch/bin/ftorch_intel` as defined below in
+[_FTorch_ on Derecho](#ftorch-on-derecho).
+
+#### Setting up case details
 
 Once this has been done then edit `user_nl_cam` in the case directory as required.
 This is a CAM namelist generated from the default for the case.
@@ -124,6 +92,8 @@ to generate output diagnostics of variables as desired.
 
 We can then run `./case.setup` and `./case.build` from within the case directory.
 
+The case can be run with `./case.submit` from the case directory.
+
 **Note:**\
 By default CESM will place output in `/glade/scratch/user/case/`
 and logs/restart files in `/glade/scratch/user/archive/case/`.
@@ -137,3 +107,63 @@ editing `env_run.xml` in the case directory to change `DOUT_S` from `FALSE` to `
 ### CAM6 namelist settings - http://www.cesm.ucar.edu/models/cesm2/settings/current/cam_nml.html
 
 Please see the [wiki](https://github.com/ESCOMP/CAM/wiki) for complete documentation on CAM, getting started with git and how to contribute to CAM's development.
+
+### _FTorch_ on Derecho
+
+The following steps can be followed to ensure a FTorch is built to be consistent
+with CAM on Derecho.
+
+On Derecho `libtorch` should be loaded using
+```
+module load libtorch/2.1.2
+```
+and used to build _FTorch_.\
+
+Further, for compatibility with CAM we need to be specific about the compilers we
+load. The following sequence of modules are required to build compatible FTorch on
+Derecho:
+```
+module load ncarenv-basic/23.06
+module load ncarenv/23.06
+module load intel/2023.0.0
+module load cmake
+module load cuda/11.7.1
+```
+
+FTorch can then be built and installed from `/path/to/ftorch/src/build/` as described in the
+documentation with:
+```
+cmake  .. \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_Fortran_COMPILER=ifort \
+  -DCMAKE_C_COMPILER=icc \
+  -DCMAKE_CXX_COMPILER=icpc \
+  -DCMAKE_PREFIX_PATH=/glade/u/apps/opt/libtorch/2.1.2 \
+  -DCMAKE_INSTALL_PREFIX=../../bin/ftorch_intel/
+
+cmake --build . --target install
+```
+
+This will build FTorch and install it to `/path/to/ftorch/bin/ftorch_intel`.
+
+### _FTorch_-compatible CIME
+
+We need to use a version of the CIME build system that is capable of linking
+our code to FTorch when building CAM.
+
+To do this we have modified the `Externals.cfg` file in the main CAM directory to
+replace the CIME entry with:
+```
+[cime]
+branch = ftorch_gw
+protocol = git
+repo_url = https://github.com/Cambridge-ICCS/cime_je
+local_path = cime
+required = True
+```
+which points to the [ICCS fork](https://github.com/Cambridge-ICCS/cime_je) of CIME
+that allows components to be built with FTorch.
+
+Specifically it points to a branch based off of the `cime6.0.175` tag that is compatible
+with the latest version of CIME used with this version of CAM (this is the cime tag 
+associated with the `cam6_3_139` tag of CAM).
