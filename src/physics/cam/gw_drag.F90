@@ -198,6 +198,7 @@ module gw_drag
   logical :: gw_convect_dp_ml = .false.
   logical :: gw_convect_dp_ml_compare = .false.
   character(len=132) :: gw_convect_dp_ml_net_path
+  type(torch_module) :: gw_convect_dp_nn
 
 !==========================================================================
 contains
@@ -980,6 +981,12 @@ subroutine gw_init()
 
   end if
 
+  ! Set up neccessary attributes if using ML scheme for convective drag
+  if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
+     ! Load the convective drag net from TorchScript file
+     gw_convect_dp_nn = torch_module_load(gw_convect_dp_ml_net)
+  endif
+
   if (use_gw_convect_sh) then
 
      ttend_sh_idx    = pbuf_get_index('TTEND_SH')
@@ -1417,9 +1424,6 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   !------------------------------------------------------------------------
 
   type(torch_tensor), dimension(1) :: in_tensors
-  type(torch_module) :: gw_convect_dp_nn
-
-  gw_convect_dp_nn = torch_module_load(gw_convect_dp_ml_net)
 
   if (masterproc) then
      write(iulog,*) 'Made a torch tensor and loaded a net!'
