@@ -1337,6 +1337,7 @@ contains
     use microp_aero, only : microp_aero_final
     use phys_grid_ctem, only : phys_grid_ctem_final
     use nudging, only: Nudge_Model, nudging_final
+    use gw_drag, only: gw_final
 
     !-----------------------------------------------------------------------
     !
@@ -1366,6 +1367,8 @@ contains
         ! cleanup hemco
         call HCOI_Chunk_Final
     endif
+
+    call gw_final()
 
   end subroutine phys_final
 
