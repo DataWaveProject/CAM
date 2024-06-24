@@ -54,6 +54,7 @@ module gw_drag
   public :: gw_drag_readnl           ! Read namelist
   public :: gw_init                  ! Initialization
   public :: gw_tend                  ! interface to actual parameterization
+  public :: gw_final                 ! Finalization
 
 !
 ! PRIVATE: Rest of the data and interfaces are private to this module
@@ -1246,6 +1247,15 @@ subroutine handle_pio_error(stat, message)
        errMsg(__FILE__, __LINE__))
 
 end subroutine handle_pio_error
+
+!==========================================================================
+
+subroutine gw_final()
+  ! Destroy neccessary attributes if using ML scheme for convective drag
+  if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
+     call torch_module_delete(gw_convect_dp_nn)
+  endif
+end subroutine gw_final
 
 !==========================================================================
 
