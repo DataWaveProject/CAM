@@ -111,7 +111,7 @@ Please see the [wiki](https://github.com/ESCOMP/CAM/wiki) for complete documenta
 
 ### _FTorch_ on Derecho
 
-The following steps can be followed to ensure a FTorch is built to be consistent
+The following steps can be followed to ensure FTorch is built to be consistent
 with CAM on Derecho.
 
 On Derecho `libtorch` should be loaded using
@@ -120,16 +120,22 @@ module load libtorch/2.1.2
 ```
 and used to build _FTorch_.\
 
-Further, for compatibility with CAM we need to be specific about the compilers we
-load. The following sequence of modules are required to build compatible FTorch on
-Derecho:
+Further, for compatibility with CAM we need to be specific about the environment and
+compilers we load.
+The following sequence of modules are required to build FTorch compatible with the intel
+build of CAM on Derecho:
 ```
-module load ncarenv-basic/23.06
+module purge
 module load ncarenv/23.06
-module load intel/2023.0.0
+module load intel-oneapi/2023.0.0
+module load mkl
 module load cmake
+module load libtorch/2.1.2
 module load cuda/11.7.1
 ```
+Note that in future builds or releases, or on different machines, the environment for
+building CAM may change.
+In this case the FTorch environment should be updated accordingly.
 
 FTorch can then be built and installed from `/path/to/ftorch/src/build/` as described in the
 documentation with:
