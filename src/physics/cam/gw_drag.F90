@@ -199,7 +199,7 @@ module gw_drag
   logical :: gw_convect_dp_ml = .false.
   logical :: gw_convect_dp_ml_compare = .false.
   character(len=132) :: gw_convect_dp_ml_net_path
-  type(torch_module) :: gw_convect_dp_nn
+  type(torch_model) :: gw_convect_dp_nn
 
 !==========================================================================
 contains
@@ -985,7 +985,7 @@ subroutine gw_init()
   ! Set up neccessary attributes if using ML scheme for convective drag
   if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
      ! Load the convective drag net from TorchScript file
-     gw_convect_dp_nn = torch_module_load(gw_convect_dp_ml_net)
+     call torch_model_load(gw_convect_dp_nn, gw_convect_dp_ml_net)
   endif
 
   if (use_gw_convect_sh) then
@@ -1253,7 +1253,7 @@ end subroutine handle_pio_error
 subroutine gw_final()
   ! Destroy neccessary attributes if using ML scheme for convective drag
   if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
-     call torch_module_delete(gw_convect_dp_nn)
+     call torch_delete(gw_convect_dp_nn)
   endif
 end subroutine gw_final
 
