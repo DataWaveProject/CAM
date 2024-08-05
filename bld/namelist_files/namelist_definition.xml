@@ -1393,20 +1393,24 @@ scheme (shallow convection).
 Default: set by build-namelist.
 </entry>
 
-<entry id="gw_convect_dp_ml" type="char*16" category="gw_drag"
-       group="gw_drag_nl" valid_values="off,on,bothoff,bothon" >
+<entry id="gw_convect_dp_ml" type="logical" category="gw_drag"
+       group="gw_drag_nl" valid_values="" >
 Whether or not to use the ML scheme for gravity waves produced by deep convection.
-   'off'     no
-   'on'      yes
-   'bothoff' run both but use default for simulation
-   'bothon'  run both but use ML for simulation
-Default: off
+Default: .false.
 </entry>
 
-<entry id="gw_convect_dp_ml_net" type="char*132" input_pathname="abs" category="gw_drag"
+<entry id="gw_convect_dp_ml_net_path" type="char*132" input_pathname="abs" category="gw_drag"
        group="gw_drag_nl" valid_values="" >
 Absolute filepath to the deep convection gravity wave neural net used when
-`gw_convect_dp_ml` is set.
+`gw_convect_dp_ml` is set to `.true.`.
+</entry>
+
+<entry id="gw_convect_dp_ml_compare" type="logical" category="gw_drag"
+       group="gw_drag_nl" valid_values="" >
+  Whether or not to run a comparison of the ML deep convection gravity waves to the
+  original scheme. The scheme used to advance the simulation will be dictated by
+  `gw_convect_deep_ml`.
+Default: .false.
 </entry>
 
 <entry id="effgw_cm" type="real" category="gw_drag"
