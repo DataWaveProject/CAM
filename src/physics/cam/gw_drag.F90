@@ -1433,14 +1433,6 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   real(r8) :: zi(state%ncol,pver+1)
   !------------------------------------------------------------------------
 
-  type(torch_tensor), dimension(1) :: in_tensors
-
-  if (masterproc) then
-     write(iulog,*) 'Made a torch tensor and loaded a net!'
-  endif
-  call torch_tensor_delete(in_tensors(1))
-  call torch_module_delete(gw_convect_dp_nn)
-
   ! Make local copy of input state.
   call physics_state_copy(state, state1)
 
