@@ -1512,7 +1512,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
             qtgw = qtgw_temp
             ttgw = ttgw_temp
             utgw = utgw_temp
-            vtgw = vygw_temp
+            vtgw = vtgw_temp
         end if
      end if
 
@@ -1536,7 +1536,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
             qtgw = qtgw_temp  ! in the ml scheme there is no qtgw so use qtgw = 0.0
             ttgw = ttgw_temp  ! in the ml scheme there is no ttgw so use ttgw = 0.0
             utgw = utgw_temp
-            vtgw = vygw_temp
+            vtgw = vtgw_temp
             ! in the ml scheme there is not egwdffi set, so use egwdffi = 0.0
         end if
      end if
