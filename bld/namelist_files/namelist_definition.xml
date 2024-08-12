@@ -1407,9 +1407,9 @@ Absolute filepath to the deep convection gravity wave neural net used when
 
 <entry id="gw_convect_dp_ml_compare" type="logical" category="gw_drag"
        group="gw_drag_nl" valid_values="" >
-  Whether or not to run a comparison of the ML deep convection gravity waves to the
-  original scheme. The scheme used to advance the simulation will be dictated by
-  `gw_convect_deep_ml`.
+  Whether or not to run a piggybacking comparison of the ML deep convection gravity 
+  waves to the original scheme. Only one scheme will be used to advance the simulation
+  as dictated by `gw_convect_deep_ml`.
 Default: .false.
 </entry>
 
