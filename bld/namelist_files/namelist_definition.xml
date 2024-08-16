@@ -1405,6 +1405,12 @@ Absolute filepath to the deep convection gravity wave neural net used when
 `gw_convect_dp_ml` is set to `.true.`.
 </entry>
 
+<entry id="gw_convect_dp_ml_norms" type="char*132" input_pathname="abs" category="gw_drag"
+       group="gw_drag_nl" valid_values="" >
+  Absolute filepath to the deep convection gravity wave normalisation weights (NetCDF)
+  used when `gw_convect_dp_ml` is set to `.true.`.
+</entry>
+
 <entry id="gw_convect_dp_ml_compare" type="logical" category="gw_drag"
        group="gw_drag_nl" valid_values="" >
   Whether or not to run a piggybacking comparison of the ML deep convection gravity 
