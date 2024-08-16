@@ -199,6 +199,7 @@ module gw_drag
   logical :: gw_convect_dp_ml = .false.
   logical :: gw_convect_dp_ml_compare = .false.
   character(len=132) :: gw_convect_dp_ml_net_path
+  character(len=132) :: gw_convect_dp_ml_norms
   type(torch_model) :: gw_convect_dp_nn
 
 !==========================================================================
@@ -242,7 +243,8 @@ subroutine gw_drag_readnl(nlfile)
        gw_oro_south_fac, gw_limit_tau_without_eff, &
        gw_lndscl_sgh, gw_prndl, gw_apply_tndmax, gw_qbo_hdepth_scaling, &
        gw_top_taper, front_gaussian_width, &
-       gw_convect_dp_ml, gw_convect_dp_ml_compare, gw_convect_dp_ml_net_path
+       gw_convect_dp_ml, gw_convect_dp_ml_compare, &
+       gw_convect_dp_ml_net_path, gw_convect_dp_ml_norms
   !----------------------------------------------------------------------
 
   if (use_simple_phys) return
@@ -354,6 +356,9 @@ subroutine gw_drag_readnl(nlfile)
 
   call mpi_bcast(gw_convect_dp_ml_net_path, len(gw_convect_dp_ml_net_path), mpi_character, mstrid, mpicom, ierr)
   if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml_net_path")
+
+  call mpi_bcast(gw_convect_dp_ml_norms, len(gw_convect_dp_ml_norms), mpi_character, mstrid, mpicom, ierr)
+  if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml_norms")
 
   ! Check if fcrit2 was set.
   call shr_assert(fcrit2 /= unset_r8, &
@@ -985,7 +990,7 @@ subroutine gw_init()
   ! Set up neccessary attributes if using ML scheme for convective drag
   if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
      ! Load the convective drag net from TorchScript file
-     call torch_model_load(gw_convect_dp_nn, gw_convect_dp_ml_net)
+     call torch_model_load(gw_convect_dp_nn, gw_convect_dp_ml_net_path)
   endif
 
   if (use_gw_convect_sh) then
