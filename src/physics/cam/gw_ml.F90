@@ -16,7 +16,7 @@ implicit none
 private
 save
 
-public :: gw_drag_convect_dp_ml, gw_drag_convect_dp_ml_init
+public :: gw_drag_convect_dp_ml, gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml_final
 
 ! Neural Net as read in by FTorch
 type(torch_model) :: convect_net
@@ -151,6 +151,14 @@ subroutine gw_drag_convect_dp_ml_init(neural_net_path, norms_path)
   call read_norms(norms_path)
 
 end subroutine gw_drag_convect_dp_ml_init
+
+
+subroutine gw_drag_convect_dp_ml_final()
+
+  ! Destroy the convective drag net
+  call torch_delete(convect_net)
+
+end subroutine gw_drag_convect_dp_ml_final
 
 
 subroutine read_norms(norms_path)
