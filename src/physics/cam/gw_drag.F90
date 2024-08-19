@@ -989,7 +989,7 @@ subroutine gw_init()
   end if
 
   ! Set up neccessary attributes if using ML scheme for convective drag
-  if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
+  if ((gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
      ! Load the convective drag net from TorchScript file
      call gw_drag_convect_dp_ml_init(gw_convect_dp_ml_net_path, gw_convect_dp_ml_norms)
   endif
@@ -1258,7 +1258,7 @@ end subroutine handle_pio_error
 
 subroutine gw_final()
   ! Destroy neccessary attributes if using ML scheme for convective drag
-  if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
+  if ((gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
      call gw_drag_convect_dp_ml_final()
   endif
 end subroutine gw_final
