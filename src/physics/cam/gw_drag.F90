@@ -42,7 +42,8 @@ module gw_drag
   use gw_common,      only: GWBand
   use gw_convect,     only: BeresSourceDesc
   use gw_front,       only: CMSourceDesc
-  use gw_ml,          only: gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml
+  use gw_ml,          only: gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml_final, &
+                            gw_drag_convect_dp_ml
 
 ! Typical module header
   implicit none
@@ -1259,7 +1260,7 @@ end subroutine handle_pio_error
 subroutine gw_final()
   ! Destroy neccessary attributes if using ML scheme for convective drag
   if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
-     call torch_delete(gw_convect_dp_nn)
+     call gw_drag_convect_dp_ml_final()
   endif
 end subroutine gw_final
 
