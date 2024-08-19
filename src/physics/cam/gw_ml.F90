@@ -103,18 +103,9 @@ subroutine gw_drag_convect_dp_ml(ncol, dt, &
   integer :: noutputs = 1
   integer, dimension(1) :: layout = [1]
 
-  ! Concatenate data into input array and map to a torch_tensor
-  net_inputs(:pver, :)             = transpose(u(:, :))
-  net_inputs(pver+1:2*pver, :)     = transpose(v(:, :))
-  net_inputs(2*pver+1:3*pver, :)   = transpose(t(:, :))
-  net_inputs(3*pver+1:4*pver, :)   = transpose(dse(:, :))
-  net_inputs(4*pver+1:5*pver, :)   = transpose(nm(:, :))
-  net_inputs(5*pver+1:6*pver, :)   = transpose(netdt(:, :))
-  net_inputs(6*pver+1:7*pver, :)   = transpose(zm(:, :))
-  net_inputs(7*pver+1:8*pver+1, :) = transpose(rhoi(:, :))
-  net_inputs(8*pver+2, :)          = ps(:)
-  net_inputs(8*pver+3, :)          = lat(:)
-  net_inputs(8*pver+4, :)          = lon(:)
+  ! Normalise and concatenate the data
+  call normalise_data(ncol, u, v, t, dse, nm, netdt, zm, rhoi, ps, lat, lon, &
+                      net_inputs)
 
   ! Loop over columns, create input and infer
   do i = 1, ncol
@@ -361,5 +352,46 @@ subroutine read_norms(norms_path)
   if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: lon_std from gw_ml.F90")
 
 end subroutine read_norms
+
+subroutine normalise_data(ncol, u, v, t, dse, nm, netdt, zm, rhoi, ps, lat, lon, &
+                          nn_input)
+
+  integer, intent(in) :: ncol
+  real(r8), intent(in) :: u(ncol,pver), v(ncol,pver)
+  real(r8), intent(in) :: t(ncol,pver)
+  real(r8), intent(in) :: dse(ncol,pver)
+  real(r8), intent(in) :: nm(ncol,pver)
+  real(r8), intent(in) :: netdt(:,:)
+  real(r8), intent(in) :: zm(ncol,pver)
+  real(r8), intent(in) :: rhoi(ncol,pver+1)
+  real(r8), intent(in) :: ps(ncol)
+  real(r8), intent(in) :: lat(ncol)
+  real(r8), intent(in) :: lon(ncol)
+
+  real(r8), intent(out) :: nn_input(8*pver+4, ncol)
+
+  integer :: i
+
+  ! Loop over each column.
+  ! Normalise data (subtract mean, divide by deviation), transpose into format
+  ! expected by the NN, and concatenate into a single input tensor as expected by the NN.
+  do i = 1,ncol
+
+    nn_input(:pver, i)             = (u(i, :) - u_mean(:))/u_std(:)
+    nn_input(pver+1:2*pver, i)     = (v(i, :) - v_mean(:))/v_std(:)
+    nn_input(2*pver+1:3*pver, i)   = (t(i, :) - t_mean(:))/t_std(:)
+    nn_input(3*pver+1:4*pver, i)   = (dse(i, :) - dse_mean(:))/dse_std(:)
+    nn_input(4*pver+1:5*pver, i)   = (nm(i, :) - nm_mean(:))/nm_std(:)
+    nn_input(5*pver+1:6*pver, i)   = (netdt(i, :) - netdt_mean(:))/netdt_std(:)
+    nn_input(6*pver+1:7*pver, i)   = (zm(i, :) - zm_mean(:))/zm_std(:)
+    nn_input(7*pver+1:8*pver+1, i) = (rhoi(i, :) - rhoi_mean(:))/rhoi_std(:)
+    nn_input(8*pver+2, i)          = (ps(i) - ps_mean)/ps_std
+    nn_input(8*pver+3, i)          = (lat(i) - lat_mean)/lat_std
+    nn_input(8*pver+4, i)          = (lon(i) - lon_mean)/lon_std
+
+  end do
+
+end subroutine normalise_data
+
 
 end module gw_ml
