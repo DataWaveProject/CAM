@@ -29,6 +29,8 @@ module gw_drag
   use cam_logfile,    only: iulog
   use cam_abortutils, only: endrun
 
+  use ftorch
+
   use ref_pres,       only: do_molec_diff, nbot_molec, press_lim_idx
   use physconst,      only: cpair
 
@@ -52,6 +54,7 @@ module gw_drag
   public :: gw_drag_readnl           ! Read namelist
   public :: gw_init                  ! Initialization
   public :: gw_tend                  ! interface to actual parameterization
+  public :: gw_final                 ! Finalization
 
 !
 ! PRIVATE: Rest of the data and interfaces are private to this module
@@ -195,6 +198,8 @@ module gw_drag
   ! Switch for using ML GW parameterisation for deep convection source
   logical :: gw_convect_dp_ml = .false.
   logical :: gw_convect_dp_ml_compare = .false.
+  character(len=132) :: gw_convect_dp_ml_net_path
+  type(torch_module) :: gw_convect_dp_nn
 
 !==========================================================================
 contains
@@ -237,7 +242,7 @@ subroutine gw_drag_readnl(nlfile)
        gw_oro_south_fac, gw_limit_tau_without_eff, &
        gw_lndscl_sgh, gw_prndl, gw_apply_tndmax, gw_qbo_hdepth_scaling, &
        gw_top_taper, front_gaussian_width, &
-       gw_convect_dp_ml, gw_convect_dp_ml_compare
+       gw_convect_dp_ml, gw_convect_dp_ml_compare, gw_convect_dp_ml_net_path
   !----------------------------------------------------------------------
 
   if (use_simple_phys) return
@@ -346,6 +351,9 @@ subroutine gw_drag_readnl(nlfile)
 
   call mpi_bcast(gw_convect_dp_ml_compare, 1, mpi_logical, mstrid, mpicom, ierr)
   if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml_compare")
+
+  call mpi_bcast(gw_convect_dp_ml_net_path, len(gw_convect_dp_ml_net_path), mpi_character, mstrid, mpicom, ierr)
+  if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml_net_path")
 
   ! Check if fcrit2 was set.
   call shr_assert(fcrit2 /= unset_r8, &
@@ -974,6 +982,12 @@ subroutine gw_init()
 
   end if
 
+  ! Set up neccessary attributes if using ML scheme for convective drag
+  if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
+     ! Load the convective drag net from TorchScript file
+     gw_convect_dp_nn = torch_module_load(gw_convect_dp_ml_net)
+  endif
+
   if (use_gw_convect_sh) then
 
      ttend_sh_idx    = pbuf_get_index('TTEND_SH')
@@ -1233,6 +1247,15 @@ subroutine handle_pio_error(stat, message)
        errMsg(__FILE__, __LINE__))
 
 end subroutine handle_pio_error
+
+!==========================================================================
+
+subroutine gw_final()
+  ! Destroy neccessary attributes if using ML scheme for convective drag
+  if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
+     call torch_module_delete(gw_convect_dp_nn)
+  endif
+end subroutine gw_final
 
 !==========================================================================
 
