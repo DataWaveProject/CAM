@@ -93,8 +93,7 @@ subroutine gw_drag_convect_dp_ml(ncol, dt, &
 
   !---------------------------Local storage-------------------------------
 
-  ! Level, wavenumber, constituent and column loop indices.
-  integer :: k, l, m, i
+  integer :: i
 
   real(r8), dimension(:,:), target :: net_inputs(8*pver+4, ncol)
   real(r8), dimension(:,:), target :: net_outputs(2*pver, ncol)
