@@ -202,7 +202,6 @@ module gw_drag
   logical :: gw_convect_dp_ml_compare = .false.
   character(len=132) :: gw_convect_dp_ml_net_path
   character(len=132) :: gw_convect_dp_ml_norms
-  type(torch_model) :: gw_convect_dp_nn
 
 !==========================================================================
 contains
