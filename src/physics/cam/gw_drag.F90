@@ -42,6 +42,7 @@ module gw_drag
   use gw_common,      only: GWBand
   use gw_convect,     only: BeresSourceDesc
   use gw_front,       only: CMSourceDesc
+  use gw_ml,          only: gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml
 
 ! Typical module header
   implicit none
@@ -990,7 +991,7 @@ subroutine gw_init()
   ! Set up neccessary attributes if using ML scheme for convective drag
   if ((gw_convect_dp_ml == 'on') .or. (gw_convect_dp_ml == 'bothon')) then
      ! Load the convective drag net from TorchScript file
-     call torch_model_load(gw_convect_dp_nn, gw_convect_dp_ml_net_path)
+     call gw_drag_convect_dp_ml_init(gw_convect_dp_ml_net_path, gw_convect_dp_ml_norms)
   endif
 
   if (use_gw_convect_sh) then
