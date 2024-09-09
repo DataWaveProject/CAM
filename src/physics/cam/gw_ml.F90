@@ -8,6 +8,7 @@ module gw_ml
 use gw_utils, only: r8
 use ppgrid,   only: pver
 use spmd_utils,      only: mpicom, mstrid=>masterprocid, masterproc, mpi_real8
+use cam_logfile,    only: iulog
 use cam_abortutils, only: endrun
 
 use ftorch
@@ -59,7 +60,6 @@ subroutine gw_drag_convect_dp_ml(ncol, dt, &
 
 
 
-
   ! Column dimension.
   integer, intent(in) :: ncol
 
@@ -103,13 +103,36 @@ subroutine gw_drag_convect_dp_ml(ncol, dt, &
   integer, dimension(1) :: layout = [1]
 
   ! Normalise and concatenate the data
+
+  if (masterproc) then
+    write(iulog,*) "==================================================================="
+    write(iulog,*) "Start of Call to gw_drag_convect_dp_ml"
+    write(iulog,*) "Using input of Ones."
+    write(iulog,*) "==================================================================="
+!     write(iulog,*) "lat_mean is: ", lat_mean
+!     write(iulog,*) "lat_std is: ", lat_std
+!     write(iulog,*) "lon_mean is: ", lon_mean
+!     write(iulog,*) "lon_std is: ", lon_std
+  end if
+
   call normalise_data(ncol, u, v, t, dse, nm, netdt, zm, rhoi, ps, lat, lon, &
                       net_inputs)
+
+  net_inputs(:, :) = 1.0
+
+  if (masterproc) then
+    write(iulog,*) "Data has been normalised."
+    write(iulog,*) "First line of input tensor has shape: ", shape(net_inputs(:, 1))
+    write(iulog,*) "First line of input tensor is:"
+    write(iulog,*) net_inputs(:, 1)
+  end if
 
   ! Loop over columns, create input and infer
   do i = 1, ncol
 
       call torch_tensor_from_array(net_input_tensors(1), net_inputs(:, i), layout, torch_kCPU)
+      !write(iulog,*) "torch_tensor_from_array is:"
+      !torch_tensor_print(net_input_tensors(1)
       call torch_tensor_from_array(net_output_tensors(1), net_outputs(:, i), layout, torch_kCPU)
 
       ! Run net forward on data
@@ -117,12 +140,31 @@ subroutine gw_drag_convect_dp_ml(ncol, dt, &
 
   end do
 
+  if (masterproc) then
+    write(iulog,*) "Net has been run over all columns."
+!     write(iulog,*) "First line of output tensor has shape: ", shape(net_outputs(:, 1))
+    write(iulog,*) "First line of output tensor is:"
+    write(iulog,*) net_outputs(1:5, 1)
+    write(iulog,*) "First line of ugtw before denormalisation is:"
+    write(iulog,*) utgw(1, 1:5)
+  end if
+
   ! Clean up the tensors
   call torch_delete(net_input_tensors)
   call torch_delete(net_output_tensors)
 
   ! Denormalise outputs and extract the data
   call denormalise_data(ncol, utgw, vtgw, net_outputs)
+
+  if (masterproc) then
+    write(iulog,*) "First line of utgw tensor back in main routine is:"
+    write(iulog,*) utgw(1, 1:5)
+
+    write(iulog,*) "==================================================================="
+    write(iulog,*) "End of Call to gw_drag_convect_dp_ml"
+    write(iulog,*) "==================================================================="
+  end if
+
 
 end subroutine gw_drag_convect_dp_ml
 
@@ -157,6 +199,14 @@ subroutine read_norms(norms_path)
 
   integer :: ncid, varid, retva, ierr
   character(len=*), parameter :: sub = 'gw_ml/F90 read_norms: '
+
+  if (masterproc) then
+    write(iulog,*) "before reading norms:"
+    write(iulog,*) "lat_mean is: ", lat_mean
+    write(iulog,*) "lat_std is: ", lat_std
+    write(iulog,*) "lon_mean is: ", lon_mean
+    write(iulog,*) "lon_std is: ", lon_std
+  end if
 
   ! Load weights from file in master process then broadcast
   if (masterproc) then
@@ -347,6 +397,14 @@ subroutine read_norms(norms_path)
   call mpi_bcast(lon_std, 1, mpi_real8, mstrid, mpicom, ierr)
   if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: lon_std from gw_ml.F90")
 
+  if (masterproc) then
+    write(iulog,*) "after reading norms:"
+    write(iulog,*) "lat_mean is: ", lat_mean
+    write(iulog,*) "lat_std is: ", lat_std
+    write(iulog,*) "lon_mean is: ", lon_mean
+    write(iulog,*) "lon_std is: ", lon_std
+  end if
+
 end subroutine read_norms
 
 subroutine normalise_data(ncol, u, v, t, dse, nm, netdt, zm, rhoi, ps, lat, lon, &
@@ -397,11 +455,25 @@ subroutine denormalise_data(ncol, utgw, vtgw, nn_output)
 
   integer :: i
 
+  if (masterproc) then
+    write(iulog,*) "Denormalising data:"
+    write(iulog,*) "First line of output tensor is:"
+    write(iulog,*) nn_output(1:5, 1)
+    write(iulog,*) "Expected first line of output denormalised is:"
+    write(iulog,*) (nn_output(1:5, 1) * utgw_std(1:5)) + utgw_mean(1:5)
+  end if
+
   ! Extract data, denormalise, and deconcatenate from NN output tensor
   do i = 1, ncol
       utgw(i, :) = (nn_output(1:pver, i) * utgw_std(:)) + utgw_mean(:)
       vtgw(i, :) = (nn_output(pver+1:2*pver, i) * vtgw_std(:)) + vtgw_mean(:)
   end do
+
+  if (masterproc) then
+    write(iulog,*) " Actual First line of output tensor is:"
+    write(iulog,*) utgw(1, 1:5)
+    write(iulog,*) "Denormalisation complete"
+  end if
 
 end subroutine denormalise_data
 
