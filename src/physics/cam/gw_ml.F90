@@ -137,6 +137,11 @@ subroutine gw_drag_convect_dp_ml_init(neural_net_path, norms_path)
   ! read in normalisation weights
   call read_norms(norms_path)
 
+  if (masterproc) then
+     write(iulog,*)'gw_convect_net loaded from: ', neural_net_path
+     write(iulog,*)'Normalisation weights loaded from: ', norms_path
+  endif
+
 end subroutine gw_drag_convect_dp_ml_init
 
 

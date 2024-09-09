@@ -990,8 +990,23 @@ subroutine gw_init()
 
   ! Set up neccessary attributes if using ML scheme for convective drag
   if ((gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
-     ! Load the convective drag net from TorchScript file
-     call gw_drag_convect_dp_ml_init(gw_convect_dp_ml_net_path, gw_convect_dp_ml_norms)
+    ! Load the convective drag net from TorchScript file
+    call gw_drag_convect_dp_ml_init(gw_convect_dp_ml_net_path, gw_convect_dp_ml_norms)
+
+    ! Register fields with the output buffer
+    call addfld ('UTGW_NN  ',   (/ 'lev' /),  'A', 'm/s2', &
+      'U tendency due to convective gravity wave drag from NN.')
+    call addfld ('VTGW_NN  ',   (/ 'lev' /),  'A', 'm/s2', &
+      'V tendency due to convective gravity wave drag from NN.')
+    call register_vector_field('UTGW_NN', 'VTGW_NN')
+
+    ! Register fields with the output buffer
+    call addfld ('UTGW_BERES  ',   (/ 'lev' /),  'A', 'm/s2', &
+      'U tendency due to convective gravity wave drag from BERES.')
+    call addfld ('VTGW_BERES  ',   (/ 'lev' /),  'A', 'm/s2', &
+      'V tendency due to convective gravity wave drag from NN.')
+    call register_vector_field('UTGW_BERES', 'VTGW_BERES')
+
   endif
 
   if (use_gw_convect_sh) then
@@ -1543,6 +1558,12 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
              ttgw_temp, qtgw_temp, egwdffi,  gwut, dttdf, dttke,            &
              lapply_effgw_in=gw_apply_tndmax)
 
+        if (gw_convect_dp_ml_compare) then
+            ! write fields out for comparison
+            call outfld('UTGW_BERES', utgw_temp,  ncol, lchnk)
+            call outfld('VTGW_BERES', vtgw_temp,  ncol, lchnk)
+        end if
+
         if (.not. gw_convect_dp_ml) then
             ! Save the results to apply to ptend for simulation updates
             qtgw = qtgw_temp
@@ -1570,6 +1591,10 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
                                    u, v, t, dse, nm, ttend_dp, zm, rhoi, ps, &
                                    lat, lon, &
                                    utgw_temp, vtgw_temp)
+
+        ! write fields out for comparison
+        call outfld('UTGW_NN', utgw_temp,  ncol, lchnk)
+        call outfld('VTGW_NN', vtgw_temp,  ncol, lchnk)
 
         if (gw_convect_dp_ml) then
             ! Save the results to apply to ptend for simulation updates
