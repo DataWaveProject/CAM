@@ -29,6 +29,8 @@ module gw_drag
   use cam_logfile,    only: iulog
   use cam_abortutils, only: endrun
 
+  use ftorch
+
   use ref_pres,       only: do_molec_diff, nbot_molec, press_lim_idx
   use physconst,      only: cpair
 
@@ -40,6 +42,8 @@ module gw_drag
   use gw_common,      only: GWBand
   use gw_convect,     only: BeresSourceDesc
   use gw_front,       only: CMSourceDesc
+  use gw_ml,          only: gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml_final, &
+                            gw_drag_convect_dp_ml
 
 ! Typical module header
   implicit none
@@ -52,6 +56,7 @@ module gw_drag
   public :: gw_drag_readnl           ! Read namelist
   public :: gw_init                  ! Initialization
   public :: gw_tend                  ! interface to actual parameterization
+  public :: gw_final                 ! Finalization
 
 !
 ! PRIVATE: Rest of the data and interfaces are private to this module
@@ -195,6 +200,8 @@ module gw_drag
   ! Switch for using ML GW parameterisation for deep convection source
   logical :: gw_convect_dp_ml = .false.
   logical :: gw_convect_dp_ml_compare = .false.
+  character(len=132) :: gw_convect_dp_ml_net_path
+  character(len=132) :: gw_convect_dp_ml_norms
 
 !==========================================================================
 contains
@@ -237,7 +244,8 @@ subroutine gw_drag_readnl(nlfile)
        gw_oro_south_fac, gw_limit_tau_without_eff, &
        gw_lndscl_sgh, gw_prndl, gw_apply_tndmax, gw_qbo_hdepth_scaling, &
        gw_top_taper, front_gaussian_width, &
-       gw_convect_dp_ml, gw_convect_dp_ml_compare
+       gw_convect_dp_ml, gw_convect_dp_ml_compare, &
+       gw_convect_dp_ml_net_path, gw_convect_dp_ml_norms
   !----------------------------------------------------------------------
 
   if (use_simple_phys) return
@@ -346,6 +354,12 @@ subroutine gw_drag_readnl(nlfile)
 
   call mpi_bcast(gw_convect_dp_ml_compare, 1, mpi_logical, mstrid, mpicom, ierr)
   if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml_compare")
+
+  call mpi_bcast(gw_convect_dp_ml_net_path, len(gw_convect_dp_ml_net_path), mpi_character, mstrid, mpicom, ierr)
+  if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml_net_path")
+
+  call mpi_bcast(gw_convect_dp_ml_norms, len(gw_convect_dp_ml_norms), mpi_character, mstrid, mpicom, ierr)
+  if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml_norms")
 
   ! Check if fcrit2 was set.
   call shr_assert(fcrit2 /= unset_r8, &
@@ -974,6 +988,27 @@ subroutine gw_init()
 
   end if
 
+  ! Set up neccessary attributes if using ML scheme for convective drag
+  if ((gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
+    ! Load the convective drag net from TorchScript file
+    call gw_drag_convect_dp_ml_init(gw_convect_dp_ml_net_path, gw_convect_dp_ml_norms)
+
+    ! Register fields with the output buffer
+    call addfld ('UTGW_NN  ',   (/ 'lev' /),  'A', 'm/s2', &
+      'U tendency due to convective gravity wave drag from NN.')
+    call addfld ('VTGW_NN  ',   (/ 'lev' /),  'A', 'm/s2', &
+      'V tendency due to convective gravity wave drag from NN.')
+    call register_vector_field('UTGW_NN', 'VTGW_NN')
+
+    ! Register fields with the output buffer
+    call addfld ('UTGW_BERES  ',   (/ 'lev' /),  'A', 'm/s2', &
+      'U tendency due to convective gravity wave drag from BERES.')
+    call addfld ('VTGW_BERES  ',   (/ 'lev' /),  'A', 'm/s2', &
+      'V tendency due to convective gravity wave drag from NN.')
+    call register_vector_field('UTGW_BERES', 'VTGW_BERES')
+
+  endif
+
   if (use_gw_convect_sh) then
 
      ttend_sh_idx    = pbuf_get_index('TTEND_SH')
@@ -1236,6 +1271,15 @@ end subroutine handle_pio_error
 
 !==========================================================================
 
+subroutine gw_final()
+  ! Destroy neccessary attributes if using ML scheme for convective drag
+  if ((gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
+     call gw_drag_convect_dp_ml_final()
+  endif
+end subroutine gw_final
+
+!==========================================================================
+
 subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   !-----------------------------------------------------------------------
   ! Interface for multiple gravity wave drag parameterization.
@@ -1255,6 +1299,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   use gw_oro,          only: gw_oro_src
   use gw_front,        only: gw_cm_src
   use gw_convect,      only: gw_beres_src
+  use gw_ml,           only: gw_drag_convect_dp_ml
 
   !------------------------------Arguments--------------------------------
   type(physics_state), intent(in) :: state   ! physics state structure
@@ -1408,6 +1453,9 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   real(r8) :: piln(state%ncol,pver+1)
   real(r8) :: zm(state%ncol,pver)
   real(r8) :: zi(state%ncol,pver+1)
+  real(r8) :: ps(state%ncol)
+  real(r8) :: lat(state%ncol)
+  real(r8) :: lon(state%ncol)
   !------------------------------------------------------------------------
 
   ! Make local copy of input state.
@@ -1429,6 +1477,9 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   piln = state1%lnpint(:ncol,:)
   zm = state1%zm(:ncol,:)
   zi = state1%zi(:ncol,:)
+  ps = state1%ps(:ncol)
+  lat = state1%lat(:ncol)
+  lon = state1%lon(:ncol)
 
   lq = .true.
   call physics_ptend_init(ptend, state1%psetcols, "Gravity wave drag", &
@@ -1507,6 +1558,12 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
              ttgw_temp, qtgw_temp, egwdffi,  gwut, dttdf, dttke,            &
              lapply_effgw_in=gw_apply_tndmax)
 
+        if (gw_convect_dp_ml_compare) then
+            ! write fields out for comparison
+            call outfld('UTGW_BERES', utgw_temp,  ncol, lchnk)
+            call outfld('VTGW_BERES', vtgw_temp,  ncol, lchnk)
+        end if
+
         if (.not. gw_convect_dp_ml) then
             ! Save the results to apply to ptend for simulation updates
             qtgw = qtgw_temp
@@ -1521,8 +1578,8 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
            write(iulog,*) "Using the ML scheme for convective gravity waves."
         end if
 
-        ! Solve for the drag profile with Beres source spectrum.
-        ! Placeholder to be replaced with the ML scheme
+        ! Solve for the drag profile with Beres source spectrum as per original CAM.
+        ! This is required to obtain values for qtgw, ttgw, and egwdffi.
         call gw_drag_prof(ncol, band_mid, p, src_level, tend_level, dt, &
              t, vramp,    &
              piln, rhoi,       nm,   ni, ubm,  ubi,  xv,    yv,   &
@@ -1530,14 +1587,22 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
              ttgw_temp, qtgw_temp, egwdffi,  gwut, dttdf, dttke,            &
              lapply_effgw_in=gw_apply_tndmax)
 
+        call gw_drag_convect_dp_ml(ncol, dt, &
+                                   u, v, t, dse, nm, ttend_dp, zm, rhoi, ps, &
+                                   lat, lon, &
+                                   utgw_temp, vtgw_temp)
+
+        ! write fields out for comparison
+        call outfld('UTGW_NN', utgw_temp,  ncol, lchnk)
+        call outfld('VTGW_NN', vtgw_temp,  ncol, lchnk)
+
         if (gw_convect_dp_ml) then
             ! Save the results to apply to ptend for simulation updates
-            ! TODO: Check how to handle tendencies not output by ML scheme
-            qtgw = qtgw_temp  ! in the ml scheme there is no qtgw so use qtgw = 0.0
-            ttgw = ttgw_temp  ! in the ml scheme there is no ttgw so use ttgw = 0.0
+            qtgw = qtgw_temp  ! not output by NN so use qtgw from original scheme
+            ttgw = ttgw_temp  ! not output by NN so use ttgw from original scheme
             utgw = utgw_temp
             vtgw = vtgw_temp
-            ! in the ml scheme there is not egwdffi set, so use egwdffi = 0.0
+            ! egwdffi is not output by the NN so use egwdffi from original scheme
         end if
      end if
 
@@ -1545,13 +1610,11 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
      taucd = calc_taucd(ncol, band_mid%ngwv, tend_level, tau, c, xv, yv, ubi)
 
      !  add the diffusion coefficients
-     ! TODO: Check how to handle egwdffi not output by ML scheme
      do k = 1, pver+1
         egwdffi_tot(:,k) = egwdffi_tot(:,k) + egwdffi(:,k)
      end do
 
      ! Store constituents tendencies
-     ! TODO: Check how to handle qtgw not output by ML scheme
      do m=1, pcnst
         do k = 1, pver
            ptend%q(:ncol,k,m) = ptend%q(:ncol,k,m) + qtgw(:,k,m)
