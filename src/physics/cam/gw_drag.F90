@@ -1273,6 +1273,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   real(r8) :: nm(state%ncol,pver)   ! midpoint Brunt-Vaisalla frequency
   real(r8) :: rhoi(state%ncol,pver+1)     ! interface density
   real(r8), allocatable :: tau(:,:,:)  ! wave Reynolds stress
+  real(r8), allocatable :: tau_temp(:,:,:)  ! temp wave Reynolds stress holder
   real(r8) :: tau0x(state%ncol)     ! c=0 sfc. stress (zonal)
   real(r8) :: tau0y(state%ncol)     ! c=0 sfc. stress (meridional)
   real(r8) :: ubi(state%ncol,pver+1)! projection of wind at interfaces
@@ -1480,6 +1481,9 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
           u, v, ttend_dp(:ncol,:), zm, src_level, tend_level, tau, &
           ubm, ubi, xv, yv, c, hdepth, maxq0)
 
+     allocate(tau_temp(ncol,-band_mid%ngwv:band_mid%ngwv,pver+1))
+     tau_temp = tau
+
      ! Solve for the drag profile with Beres source spectrum.
      call gw_drag_prof(ncol, band_mid, p, src_level, tend_level, dt, &
           t, vramp,    &
@@ -1487,6 +1491,16 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
           effgw,   c,       kvtt, q,  dse,  tau,  utgw,  vtgw, &
           ttgw, qtgw, egwdffi,  gwut, dttdf, dttke,            &
           lapply_effgw_in=gw_apply_tndmax)
+
+     ! Set variables not forecast by the NN to 0,0 and preserve the previous value of tau
+     ttgw = 0.0
+     qtgw = 0.0
+     egwdffi = 0.0
+     gwut = 0.0
+     dttdf = 0.0
+     dttke = 0.0
+     tau = tau_temp
+     deallocate(tau_temp)
 
      ! Project stress into directional components.
      taucd = calc_taucd(ncol, band_mid%ngwv, tend_level, tau, c, xv, yv, ubi)
