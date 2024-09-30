@@ -1063,6 +1063,15 @@ subroutine gw_init()
      call add_default('EKGW', 1, ' ')
   end if
 
+  call addfld ('RHOI', (/ 'ilev' /), 'A', 'kg/m3', &
+       'density at interfaces')
+
+  call addfld ('DSE', (/ 'lev' /), 'I', 'J/kg', &
+       'dry static energy')
+
+  call addfld ('NMBV', (/ 'lev' /), 'I', 'J/kg', &
+       'Brunt Vaisala Frequency')
+
   call addfld ('UTGW_TOTAL',    (/ 'lev' /), 'A','m/s2', &
        'Total U tendency due to gravity wave drag')
   call addfld ('VTGW_TOTAL',    (/ 'lev' /), 'A','m/s2', &
@@ -2095,6 +2104,10 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   call outfld('QTGW', ptend%q(:,:,1), pcols, lchnk)
   call outfld('CLDLIQTGW', ptend%q(:,:,ixcldliq), pcols, lchnk)
   call outfld('CLDICETGW', ptend%q(:,:,ixcldice), pcols, lchnk)
+
+  call outfld('RHOI', rhoi, pcols, lchnk)
+  call outfld('DSE', dse, ncol, lchnk)
+  call outfld('NMBV', nm, ncol, lchnk)
 
   ! Destroy objects.
   call p%finalize()
