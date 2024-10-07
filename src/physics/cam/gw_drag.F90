@@ -1592,6 +1592,10 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
                                    lat, lon, &
                                    utgw_temp, vtgw_temp)
 
+        ! Set outputs from NN to order of magnitude values to see if simulation can proceed.
+        utgw_temp = 1.0D-6
+        vtgw_temp = 1.0D-6
+
         ! write fields out for comparison
         call outfld('UTGW_NN', utgw_temp,  ncol, lchnk)
         call outfld('VTGW_NN', vtgw_temp,  ncol, lchnk)
