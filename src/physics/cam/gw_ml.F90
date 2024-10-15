@@ -9,6 +9,7 @@ use gw_utils, only: r8
 use ppgrid,   only: pver
 use spmd_utils,      only: mpicom, mstrid=>masterprocid, masterproc, mpi_real8
 use cam_abortutils, only: endrun
+use cam_logfile,    only: iulog
 
 use ftorch
 
