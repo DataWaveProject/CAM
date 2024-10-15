@@ -2105,7 +2105,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   call outfld('CLDLIQTGW', ptend%q(:,:,ixcldliq), pcols, lchnk)
   call outfld('CLDICETGW', ptend%q(:,:,ixcldice), pcols, lchnk)
 
-  call outfld('RHOI', rhoi, pcols, lchnk)
+  call outfld('RHOI', rhoi, ncol, lchnk)
   call outfld('DSE', dse, ncol, lchnk)
   call outfld('NMBV', nm, ncol, lchnk)
 
