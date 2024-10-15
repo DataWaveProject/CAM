@@ -1549,6 +1549,9 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
           u, v, ttend_dp(:ncol,:), zm, src_level, tend_level, tau, &
           ubm, ubi, xv, yv, c, hdepth, maxq0)
 
+     ! TODO: If we are running with the ML scheme save tau to a temp variable so we
+     !       Can reset to it instead of having it updated in the physics scheme.
+
      if ((.not. gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
         ! Solve for the drag profile with Beres source spectrum.
         call gw_drag_prof(ncol, band_mid, p, src_level, tend_level, dt, &
@@ -1578,17 +1581,8 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
            write(iulog,*) "Using the ML scheme for convective gravity waves."
         end if
 
-        ! Solve for the drag profile with Beres source spectrum as per original CAM.
-        ! This is required to obtain values for qtgw, ttgw, and egwdffi.
-        call gw_drag_prof(ncol, band_mid, p, src_level, tend_level, dt, &
-             t, vramp,    &
-             piln, rhoi,       nm,   ni, ubm,  ubi,  xv,    yv,   &
-             effgw,   c,       kvtt, q,  dse,  tau,  utgw_temp,  vtgw_temp, &
-             ttgw_temp, qtgw_temp, egwdffi,  gwut, dttdf, dttke,            &
-             lapply_effgw_in=gw_apply_tndmax)
-
         call gw_drag_convect_dp_ml(ncol, dt, &
-                                   u, v, t, dse, nm, ttend_dp, zm, rhoi, ps, &
+                                   u, v, t, dse, nm, ttend_dp(:ncol,:), zm, rhoi, ps, &
                                    lat, lon, &
                                    utgw_temp, vtgw_temp)
 
@@ -1597,12 +1591,16 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
         call outfld('VTGW_NN', vtgw_temp,  ncol, lchnk)
 
         if (gw_convect_dp_ml) then
-            ! Save the results to apply to ptend for simulation updates
-            qtgw = qtgw_temp  ! not output by NN so use qtgw from original scheme
-            ttgw = ttgw_temp  ! not output by NN so use ttgw from original scheme
+            ! Save the results to apply to ptend for simulation updates.
+            ! Some tendencies are not supplied by the NN, set these to 0.0 as minor.
+            ttgw = 0.0
+            qtgw = 0.0
+            egwdffi = 0.0
+            gwut = 0.0
+            dttdf = 0.0
+            dttke = 0.0
             utgw = utgw_temp
             vtgw = vtgw_temp
-            ! egwdffi is not output by the NN so use egwdffi from original scheme
         end if
      end if
 
