@@ -64,7 +64,7 @@ You can then navigate to the case directory at `<path_to_testcase_directory>`.
 ### Build CAM with `FTorch`
 
 Before we can run `./case.build` we first need to make some manual changes to the `Makefile` located in
-`path_to_testcase_directory>/Tools/Makefile`. This will allow the CIME build system to locate `FTorch`.
+`<path_to_testcase_directory>/Tools/Makefile`. This will allow the CIME build system to locate `FTorch`.
 
 From the test case directory, modify `Tools/Makefile` line 602 to set the environment variable `FTORCH_LIB` to the location of
 the `FTorch` library on your system.
