@@ -22,7 +22,7 @@ This branch is built upon the `cam6_3_139` tag from the
 
 ### Obtaining `FTorch`
 
-To use PyTorch-based neural nets in CAM, we first need to build and link `FTorch`.
+To use PyTorch-based neural nets in CAM, we use [`FTorch`](https://github.com/Cambridge-ICCS/FTorch) which needs to be built on the system before we build CAM.
 
 To install `FTorch` on Derecho follow the instructions in section [`FTorch` on Derecho](#ftorch-on-derecho) below.
 
