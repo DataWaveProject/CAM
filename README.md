@@ -117,7 +117,7 @@ We can then run `./case.build` from within the case directory to build the model
 The case can be run with `./case.submit` from the case directory.
 
 > [!NOTE]
-> By default CESM will place output in `$SCRATCH/case/` and logs/restart files in `$SCRATCH/archive/case/`.
+> By default CESM will place outputs in `$SCRATCH/case/` essential parts of which will be moved to `$SCRATCH/archive/case/` after run completion.
 > To place all output with logs in `archive/case` switch 'short term archiving' on by running `./xmlchange DOUT_S=FALSE` in the
 > case directory to change `DOUT_S` from `TRUE` to `FALSE`.
 
