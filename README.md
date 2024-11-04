@@ -78,10 +78,15 @@ FTORCH_LIB := $HOME/FTorch/bin/ftorch_intel
 ### Setting up case details
 
 We can now run `./case.setup` from within the case directory. Once this has been done then edit the generated `user_nl_cam` in
-the case directory as required. Add the following lines:
+the case directory as required.
 
+> [!NOTE]
+> The following settings are provided as an example. These should be tailored to your particular experiment. For more
+> information, please see the descriptions below.
+
+To run CAM using the NN to predict gravity waves and the physics-based model to _piggyback_, we can set the following settings:
 ```fortran
-gw_convect_dp_ml=.false.
+gw_convect_dp_ml=.true.
 gw_convect_dp_ml_compare=.true.
 gw_convect_dp_ml_net_path='/path/to/neural/net'
 gw_convect_dp_ml_norms='/path/to/norms'
