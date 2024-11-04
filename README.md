@@ -136,7 +136,7 @@ with CAM on Derecho.
 
 #### load CAM environment
 
-For compatibility with CAM we need to be specific about the environment and compilers we load. The following sequence of modules
+For compatibility with the version of CAM we are using (branched from the `cam6_3_139` tag) we need to be specific about the environment and compilers we load. The following sequence of modules
 are required to build `FTorch` compatible with the intel build of CAM on Derecho:
 
 ```bash
