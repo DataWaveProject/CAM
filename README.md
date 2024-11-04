@@ -152,11 +152,6 @@ module load cuda/11.7.1
 > In future builds or releases, or on different machines, the environment for building CAM may change. In this case the `FTorch`
 > environment should be updated accordingly.
 
-> [!NOTE]
-> When building `FTorch` with `cmake` in the next step, we use the absolute path to `libtorch`. Previously, we loaded the
-> `libtorch` module i.e., `module load libtorch/2.1.2` but this conflicts with `ncarenv/23.06`. We do not actually need to load
-> the `libtorch` module to use the absolute path, so for now we can ignore this.
-
 #### obtain Ftorch source
 
 ```bash
