@@ -118,7 +118,7 @@ The case can be run with `./case.submit` from the case directory.
 
 > [!NOTE]
 > By default CESM will place outputs in `$SCRATCH/case/` essential parts of which will be moved to `$SCRATCH/archive/case/` after run completion.
-> To place all output with logs in `archive/case` switch 'short term archiving' on by running `./xmlchange DOUT_S=FALSE` in the
+> To leave all output in `$SCRATCH/case/` switch 'short term archiving' off by running `./xmlchange DOUT_S=FALSE` in the
 > case directory to change `DOUT_S` from `TRUE` to `FALSE`.
 
 ## NOTE: This is **unsupported** development code and is subject to the [CESM developer's agreement](http://www.cgd.ucar.edu/cseg/development-code.html).
