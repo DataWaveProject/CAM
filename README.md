@@ -72,8 +72,11 @@ the `FTorch` library on your system.
 If you followed the instructions in section [`FTorch` on Derecho](#ftorch-on-derecho) this will be `$HOME/FTorch/bin/ftorch_intel`.
 
 ```make
-FTORCH_LIB := $HOME/FTorch/bin/ftorch_intel
+FTORCH_LIB := </path/to/$HOME/>FTorch/bin/ftorch_intel
 ```
+> [!NOTE]
+> You will need to use the full filepath to the FTorch install.
+> Do not use `~/` or `$HOME/` as this may not work.
 
 ### Setting up case details
 
