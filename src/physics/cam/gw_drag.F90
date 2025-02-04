@@ -990,6 +990,9 @@ subroutine gw_init()
 
   ! Set up neccessary attributes if using ML scheme for convective drag
   if ((gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
+    if (masterproc) then
+       write(iulog,*) "Using the ML scheme for convective gravity waves."
+    end if
     ! Load the convective drag net from TorchScript file
     call gw_drag_convect_dp_ml_init(gw_convect_dp_ml_net_path, gw_convect_dp_ml_norms)
 
@@ -1586,10 +1589,6 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
      end if
 
      if ((gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
-        if (masterproc) then
-           write(iulog,*) "Using the ML scheme for convective gravity waves."
-        end if
-
         call gw_drag_convect_dp_ml(ncol, dt, &
                                    u, v, t, dse, nm, ttend_dp(:ncol,:), zm, rhoi, ps, &
                                    lat, lon, &
