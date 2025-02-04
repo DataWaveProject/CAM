@@ -134,7 +134,7 @@ subroutine gw_drag_convect_dp_ml_init(neural_net_path, norms_path)
   character(len=132), intent(in) :: norms_path       ! Filepath to NetCDF normalisation weights
 
   ! Load the convective drag net from TorchScript file
-  call torch_model_load(convect_net, neural_net_path)
+  call torch_model_load(convect_net, neural_net_path, torch_kCPU)
   ! read in normalisation weights
   call read_norms(norms_path)
 
