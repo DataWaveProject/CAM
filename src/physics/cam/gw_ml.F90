@@ -116,11 +116,11 @@ subroutine gw_drag_convect_dp_ml(ncol, dt, &
       ! Run net forward on data
       call torch_model_forward(convect_net, net_input_tensors, net_output_tensors)
 
-  end do
+      ! Clean up the tensors
+      call torch_delete(net_input_tensors(1))
+      call torch_delete(net_output_tensors(1))
 
-  ! Clean up the tensors
-  call torch_delete(net_input_tensors)
-  call torch_delete(net_output_tensors)
+  end do
 
   ! Denormalise outputs and extract the data
   call denormalise_data(ncol, utgw, vtgw, net_outputs)
