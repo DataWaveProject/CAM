@@ -1639,7 +1639,6 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
 
      ! Find energy change in the current state, and use fixer to apply
      ! the difference in lower levels.
-     ! TODO: Check how to handle ttgw not output by ML scheme
      call energy_change(dt, p, u, v, ptend%u(:ncol,:), &
           ptend%v(:ncol,:), ptend%s(:ncol,:)+ttgw, de)
      call energy_fixer(tend_level, p, de-flx_heat(:ncol), ttgw)
