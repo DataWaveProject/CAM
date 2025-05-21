@@ -15,7 +15,7 @@ branch on which this work is based:
 ```
 git clone https://github.com/DataWaveProject/CAM.git
 cd CAM
-git checkout coupling
+git checkout datawave_ml
 ```
 This branch is built upon the `cam6_3_139` tag from the
 [main ESMCOMP/CAM repository](https://github.com/ESCOMP/CAM).
