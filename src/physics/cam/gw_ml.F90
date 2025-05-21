@@ -54,12 +54,12 @@ contains
 subroutine gw_drag_convect_dp_ml(ncol, dt, &
                                  u, v, t, dse, nm, netdt, zm, rhoi, ps, lat, lon, &
                                  utgw, vtgw)
+  ! This routine is a neural net implementation of gravity wave drag due to convective
+  ! sources. It is intended as a drop-in replacement for the physics-based Beres scheme.
 
-  ! Take data from CAM, normalise and concatenate before passing it to the Torch neural
-  ! net to calculate u and v tendencies.
-
-
-
+  ! We take input data from CAM, normalise and concatenate before passing it to a
+  ! neural net to calculate u and v tendencies.
+  ! The net is trained using PyTorch and coupled to the Fortran using FTorch.
 
   ! Column dimension.
   integer, intent(in) :: ncol
@@ -130,6 +130,11 @@ end subroutine gw_drag_convect_dp_ml
 
 subroutine gw_drag_convect_dp_ml_init(neural_net_path, norms_path)
 
+  ! This is an initialisation routine for the module, called once per run from
+  ! the physics package.
+  ! It will read in the neural net from a saved TorchScript file, and the normalisation
+  ! weights (means and standard deviations) from a saved NetCDF file.
+
   character(len=132), intent(in) :: neural_net_path  ! Filepath to PyTorch Torchscript net
   character(len=132), intent(in) :: norms_path       ! Filepath to NetCDF normalisation weights
 
@@ -147,6 +152,10 @@ end subroutine gw_drag_convect_dp_ml_init
 
 
 subroutine gw_drag_convect_dp_ml_final()
+  
+  ! This is a finalisation routine for the module, called once per run from
+  ! gw_final() in the gw_drag module.
+  ! It cleans up the net loaded into memory during the initialisation routine.
 
   ! Destroy the convective drag net
   call torch_delete(convect_net)
@@ -155,6 +164,10 @@ end subroutine gw_drag_convect_dp_ml_final
 
 
 subroutine read_norms(norms_path)
+
+  ! This subroutine is called as part of the module initialisation.
+  ! It reads the normalisation weights from a saved NetCDF file and broadcasts them to
+  ! from masterproc to all ranks.
 
   use netcdf
   use error_messages, only: handle_ncerr
@@ -363,6 +376,9 @@ end subroutine read_norms
 subroutine normalise_data(ncol, u, v, t, dse, nm, netdt, zm, rhoi, ps, lat, lon, &
                           nn_input)
 
+  ! Normalise inputs to the neural net from CAM using weights that were read from file.
+
+  ! See the variable documentation in gw_drag_convect_dp_ml()
   integer, intent(in) :: ncol
   real(r8), intent(in) :: u(ncol,pver), v(ncol,pver)
   real(r8), intent(in) :: t(ncol,pver)
@@ -382,6 +398,9 @@ subroutine normalise_data(ncol, u, v, t, dse, nm, netdt, zm, rhoi, ps, lat, lon,
   ! Loop over each column.
   ! Normalise data (subtract mean, divide by deviation), transpose into format
   ! expected by the NN, and concatenate into a single input tensor as expected by the NN.
+
+  ! For each atmospheric column (i = 1 to ncol), we construct a single input vector for
+  ! the neural network by stacking all values of each variable in the following order:
   do i = 1,ncol
 
     nn_input(:pver, i)             = (u(i, :) - u_mean(:))/u_std(:)
@@ -402,13 +421,16 @@ end subroutine normalise_data
 
 subroutine denormalise_data(ncol, utgw, vtgw, nn_output)
 
-  integer, intent(in) :: ncol
-  real(r8), intent(out) :: utgw(ncol,pver), vtgw(ncol,pver)
-  real(r8), intent(in) :: nn_output(2*pver, ncol)
+  ! Denormalise outputs from the neural net to CAM using weights that were read from file.
+
+  integer, intent(in) :: ncol                                ! number of columns in chunk
+  real(r8), intent(out) :: utgw(ncol,pver), vtgw(ncol,pver)  ! u and v tendencies
+  real(r8), intent(in) :: nn_output(2*pver, ncol)            ! Stacked neural net output
 
   integer :: i
 
-  ! Extract data, denormalise, and deconcatenate from NN output tensor
+  ! For each atmospheric column (i = 1 to ncol), we unstack the single output vector from
+  ! the neural network into separate variables in the following order:
   do i = 1, ncol
       utgw(i, :) = (nn_output(1:pver, i) * utgw_std(:)) + utgw_mean(:)
       vtgw(i, :) = (nn_output(pver+1:2*pver, i) * vtgw_std(:)) + vtgw_mean(:)

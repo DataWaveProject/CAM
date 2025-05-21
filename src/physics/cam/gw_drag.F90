@@ -1007,7 +1007,7 @@ subroutine gw_init()
     call addfld ('UTGW_BERES  ',   (/ 'lev' /),  'A', 'm/s2', &
       'U tendency due to convective gravity wave drag from BERES.')
     call addfld ('VTGW_BERES  ',   (/ 'lev' /),  'A', 'm/s2', &
-      'V tendency due to convective gravity wave drag from NN.')
+      'V tendency due to convective gravity wave drag from BERES.')
     call register_vector_field('UTGW_BERES', 'VTGW_BERES')
 
   endif
@@ -1072,7 +1072,7 @@ subroutine gw_init()
   call addfld ('DSE', (/ 'lev' /), 'I', 'J/kg', &
        'dry static energy')
 
-  call addfld ('NMBV', (/ 'lev' /), 'I', 'J/kg', &
+  call addfld ('NMBV', (/ 'lev' /), 'I', 'frequency', &
        'Brunt Vaisala Frequency')
 
   call addfld ('UTGW_TOTAL',    (/ 'lev' /), 'A','m/s2', &
@@ -1557,12 +1557,11 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
      end where
 
      ! Determine wave sources for Beres deep scheme
+     ! Note: calculation of source terms is required by both Beres and ML scheme to 
+     ! provide tau. Be aware that tau is modified by Beres but not the ML scheme.
      call gw_beres_src(ncol, band_mid, beres_dp_desc, &
           u, v, ttend_dp(:ncol,:), zm, src_level, tend_level, tau, &
           ubm, ubi, xv, yv, c, hdepth, maxq0)
-
-     ! TODO: If we are running with the ML scheme save tau to a temp variable so we
-     !       Can reset to it instead of having it updated in the physics scheme.
 
      if ((.not. gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
         ! Solve for the drag profile with Beres source spectrum.
