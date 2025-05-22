@@ -60,7 +60,6 @@ subroutine gw_drag_convect_dp_ml(ncol, dt, &
   ! We take input data from CAM, normalise and concatenate before passing it to a
   ! neural net to calculate u and v tendencies.
   ! The net is trained using PyTorch and coupled to the Fortran using FTorch.
-
   ! Column dimension.
   integer, intent(in) :: ncol
 
@@ -107,6 +106,9 @@ subroutine gw_drag_convect_dp_ml(ncol, dt, &
   call normalise_data(ncol, u, v, t, dse, nm, netdt, zm, rhoi, ps, lat, lon, &
                       net_inputs)
 
+  ! Initialise output with zeros 
+  net_outputs = 0._r8
+
   ! Loop over columns, create input and infer
   do i = 1, ncol
 
@@ -121,6 +123,11 @@ subroutine gw_drag_convect_dp_ml(ncol, dt, &
       call torch_delete(net_output_tensors(1))
 
   end do
+
+  ! Runtime checks on outputs
+  if (all(net_outputs == 0._r8)) then
+    call endrun('gw_ml: net_outputs is all zeros — possible inference failure')
+  endif
 
   ! Denormalise outputs and extract the data
   call denormalise_data(ncol, utgw, vtgw, net_outputs)
