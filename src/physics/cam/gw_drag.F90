@@ -45,6 +45,7 @@ module gw_drag
   use gw_ml,          only: gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml_final, &
                             gw_drag_convect_dp_ml
   use gw_nlgw,        only: gw_nlgw_dp_ml, gw_nlgw_dp_init, gw_nlgw_dp_finalize
+  use nlgw_remap_mod, only: nlgw_regrid_init, nlgw_regrid, nlgw_regrid_init
 
 ! Typical module header
   implicit none
@@ -1488,6 +1489,10 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
 
   ! constituents are all treated as wet mmr
   call set_dry_to_wet(state1)
+
+  call nlgw_regrid_init()
+  call nlgw_regrid(state1)
+  stop
 
   lchnk = state1%lchnk
   ncol  = state1%ncol
