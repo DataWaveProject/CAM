@@ -12,6 +12,7 @@ use cam_abortutils, only: endrun
 use cam_logfile,    only: iulog
 use physconst,      only: cappa, pi
 use interpolate_data, only: lininterp
+use cam_history,    only: outfld
 
 use ftorch
 
@@ -173,6 +174,11 @@ subroutine gw_nlgw_dp_ml(state_in, ptend)
   call flux_to_forcing(uflux, utgw)
   call flux_to_forcing(vflux, vtgw)
 
+  ! Write UTGW and VTGW to file
+  call outfld('UTGW_NL', utgw, ncol, pver)
+  call outfld('VTGW_NL', vtgw, ncol, pver)
+
+
   ! update the tendencies
   ptend%u(:ncol,:pver) = ptend%u(:ncol,:pver) + utgw(:ncol,:pver)
   ptend%v(:ncol,:pver) = ptend%v(:ncol,:pver) + vtgw(:ncol,:pver)
@@ -205,6 +211,8 @@ end subroutine gw_nlgw_dp_ml
 
 subroutine gw_nlgw_dp_init(model_path)
 
+  use cam_history,    only: addfld
+
   character(len=*), intent(in) :: model_path  ! Filepath to PyTorch Torchscript net
   integer :: device_id
 
@@ -218,6 +226,9 @@ subroutine gw_nlgw_dp_init(model_path)
   if (masterproc) then
      write(iulog,*)'nlgw model loaded from: ', model_path
   endif
+
+  call addfld('UTGW_NL', (/ 'lev' /), 'U', 'm/s2', 'Nonlinear GW zonal wind tendency')
+  call addfld('VTGW_NL', (/ 'lev' /), 'U', 'm/s2', 'Nonlinear GW meridional wind tendency')
 
 end subroutine gw_nlgw_dp_init
 
