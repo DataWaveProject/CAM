@@ -1549,7 +1549,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   flx_heat = 0._r8
 
   if ( use_gw_nlgw ) then
-    call gw_nlgw_dp_ml(state1,ptend)
+    call gw_nlgw_dp_ml(state1,ptend,lchnk)
   end if
 
   if (use_gw_convect_dp) then

@@ -5,7 +5,7 @@ module gw_nlgw
 !
 
 use gw_utils, only: r8, r4
-use ppgrid,   only: pver !vertical levels
+use ppgrid,   only: pcols, pver !vertical levels
 use physics_types,  only: physics_state, physics_ptend
 use spmd_utils,     only: mpicom, mstrid=>masterprocid, masterproc, mpi_real8, iam
 use cam_abortutils, only: endrun
@@ -105,10 +105,11 @@ contains
 
 !==========================================================================
 
-subroutine gw_nlgw_dp_ml(state_in, ptend)
+subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
 
   ! inputs
   type(physics_state), intent(in) :: state_in
+  integer,             intent(in)    :: lchnk
   ! outputs
   type(physics_ptend), intent(inout) :: ptend
 
@@ -136,7 +137,7 @@ subroutine gw_nlgw_dp_ml(state_in, ptend)
 
   allocate(uflux(ncol,pver))
   allocate(vflux(ncol,pver))
-  allocate(utgw(ncol,pver))
+  allocate(utgw(pcols,pver))
   allocate(vtgw(ncol,pver))
 
   allocate(net_inputs(ncol, 4*pver_interp+3))
@@ -175,8 +176,8 @@ subroutine gw_nlgw_dp_ml(state_in, ptend)
   call flux_to_forcing(vflux, vtgw)
 
   ! Write UTGW and VTGW to file
-  call outfld('UTGW_NL', utgw, ncol, pver)
-  call outfld('VTGW_NL', vtgw, ncol, pver)
+  call outfld('UTGW_NL', utgw, ncol, lchnk)
+  call outfld('VTGW_NL', vtgw, ncol, lcnhk)
 
 
   ! update the tendencies
@@ -227,8 +228,8 @@ subroutine gw_nlgw_dp_init(model_path)
      write(iulog,*)'nlgw model loaded from: ', model_path
   endif
 
-  call addfld('UTGW_NL', (/ 'lev' /), 'U', 'm/s2', 'Nonlinear GW zonal wind tendency')
-  call addfld('VTGW_NL', (/ 'lev' /), 'U', 'm/s2', 'Nonlinear GW meridional wind tendency')
+  call addfld('UTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW zonal wind tendency')
+  call addfld('VTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW meridional wind tendency')
 
 end subroutine gw_nlgw_dp_init
 
