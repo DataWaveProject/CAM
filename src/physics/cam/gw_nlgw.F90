@@ -137,7 +137,7 @@ subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
 
   allocate(uflux(ncol,pver))
   allocate(vflux(ncol,pver))
-  allocate(utgw(pcols,pver))
+  allocate(utgw(ncol,pver))
   allocate(vtgw(ncol,pver))
 
   allocate(net_inputs(ncol, 4*pver_interp+3))
@@ -177,7 +177,7 @@ subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
 
   ! Write UTGW and VTGW to file
   call outfld('UTGW_NL', utgw, ncol, lchnk)
-  call outfld('VTGW_NL', vtgw, ncol, lcnhk)
+  call outfld('VTGW_NL', vtgw, ncol, lchnk)
 
 
   ! update the tendencies
