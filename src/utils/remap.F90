@@ -201,8 +201,6 @@ contains
     use esmf_lonlat_grid_mod, only: esmf_lonlat_grid_destroy
     use esmf_phys_mesh_mod, only: esmf_phys_mesh_destroy
 
-    if (.not.ctem_diags_active) return
-
     call esmf_phys2lonlat_destroy()
     call esmf_lonlat_grid_destroy()
     call esmf_phys_mesh_destroy()
