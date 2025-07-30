@@ -869,7 +869,7 @@ contains
        call co2_init()
     end if
 
-    call gw_init()
+    ! call gw_init()
 
     call rayleigh_friction_init()
 
@@ -1183,6 +1183,7 @@ contains
     use metdata,         only: get_met_srf2
 #endif
     use hemco_interface, only: HCOI_Chunk_Run
+    use nlgw_remap_mod,   only: nlgw_regrid_init, nlgw_regrid, nlgw_regrid_final
     !
     ! Input arguments
     !
@@ -1243,6 +1244,10 @@ contains
     call t_barrierf('sync_ac_physics', mpicom)
     call t_startf ('ac_physics')
     call t_adj_detailf(+1)
+
+    call nlgw_regrid_init()
+    call nlgw_regrid(phys_state)
+    stop
 
 !$OMP PARALLEL DO PRIVATE (C, NCOL, phys_buffer_chunk)
 
