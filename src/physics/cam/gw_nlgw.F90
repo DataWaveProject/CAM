@@ -124,7 +124,7 @@ subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
 
   integer :: device_id
 
-  device_id = mod(iam, 2)
+  device_id = mod(iam, 4)
 
   ncol = state_in%ncol
 
@@ -136,6 +136,7 @@ subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
   allocate(v(ncol,pver))
   allocate(t(ncol,pver))
   allocate(pmid(ncol,pver))
+  ! allocate(pmid_interp(ncol,pver))
   allocate(theta(ncol,pver))
   allocate(omega(ncol,pver))
 
@@ -188,14 +189,14 @@ subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
   call flux_to_forcing(uflux, utgw, lchnk)
   call flux_to_forcing(vflux, vtgw, lchnk)
 
-  do i = 1, ncol
-      pmid_interp(i,:) = era5_ak(:) + ps(i)*era5_bk(:)
-      if (maxval(abs(utgw(i,:))) > tendency_threshold .or. &
-          maxval(abs(vtgw(i,:))) > tendency_threshold) then
-          call dump_column_data(i, net_inputs, net_outputs, utgw, vtgw, pmid, phis, tendency_threshold, lchnk, pver)
-          call dump_flux_profile(i, net_outputs, pmid_interp, lchnk, pver_interp) ! This is in model (era5) space
-      end if
-  end do
+  ! do i = 1, ncol
+  !     pmid_interp(i,:) = era5_ak(:) + ps(i)*era5_bk(:)
+  !     if (maxval(abs(utgw(i,:))) > tendency_threshold .or. &
+  !         maxval(abs(vtgw(i,:))) > tendency_threshold) then
+  !         call dump_column_data(i, net_inputs, net_outputs, utgw, vtgw, pmid, phis, tendency_threshold, lchnk, pver)
+  !         call dump_flux_profile(i, net_outputs, pmid_interp, lchnk, pver_interp) ! This is in model (era5) space
+  !     end if
+  ! end do
 
   ! Write UTGW and VTGW to file
   call outfld('UTGW_NL',utgw,ncol,lchnk)
@@ -241,7 +242,7 @@ subroutine gw_nlgw_dp_init(model_path)
   character(len=*), intent(in) :: model_path  ! Filepath to PyTorch Torchscript net
   integer :: device_id
 
-  device_id = mod(iam, 2)
+  device_id = mod(iam, 4)
 
   ! Load the convective drag net from TorchScript file
   call torch_model_load(nlgw_model, model_path, device_type=torch_kCUDA, device_index=device_id)
