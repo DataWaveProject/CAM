@@ -33,11 +33,12 @@ module esmf_lonlat_grid_mod
 
 contains
 
-  subroutine esmf_lonlat_grid_init(nlats_in)
+  subroutine esmf_lonlat_grid_init(nlats_in, nlons_in)
     use phys_grid, only: get_grid_dims
     use mpi, only: mpi_comm_size, mpi_comm_rank, MPI_PROC_NULL, MPI_INTEGER
 
     integer, intent(in) :: nlats_in
+    integer, intent(in) :: nlons_in
 
     real(r8) :: delx, dely
 
@@ -78,7 +79,7 @@ contains
     nlat = nlats_in
     dely = 180._r8/nlat
 
-    nlon = 2*nlat
+    nlon = nlons_in
     delx = 360._r8/nlon
 
     allocate(glons(nlon), stat=astat)

@@ -47,7 +47,7 @@ contains
     character(len=*), parameter :: subname = 'ctem_diags_reg: '
 
     ! initialize grids and mapping
-    call esmf_lonlat_grid_init(64)
+    call esmf_lonlat_grid_init(192, 288)
     call esmf_phys_mesh_init()
     call esmf_phys2lonlat_init()
 
