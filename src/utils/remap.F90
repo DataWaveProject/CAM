@@ -7,7 +7,7 @@ module nlgw_remap_mod
   use ppgrid, only: begchunk, endchunk, pcols, pver, pverp
   use physics_types, only: physics_state
   use phys_grid, only: get_ncols_p
-  use spmd_utils, only: masterproc
+  use spmd_utils, only: masterproc, npes
   use ref_pres, only: pref_mid
   use esmf_lonlat_grid_mod, only: beglon=>lon_beg, endlon=>lon_end, beglat=>lat_beg, endlat=>lat_end
   use cam_history,  only: addfld, outfld, horiz_only
@@ -47,7 +47,7 @@ contains
     character(len=*), parameter :: subname = 'ctem_diags_reg: '
 
     ! initialize grids and mapping
-    call esmf_lonlat_grid_init(192, 288)
+    call esmf_lonlat_grid_init(64, 128)
     call esmf_phys_mesh_init()
     call esmf_phys2lonlat_init()
 
@@ -111,10 +111,12 @@ contains
     use air_composition, only: mbarv ! g/mole
     use shr_const_mod, only: rgas => shr_const_rgas ! J/K/kmole
     use shr_const_mod, only: grav => shr_const_g ! m/s2
+    use esmf_lonlat_grid_mod, only: nlat, nlon
     use esmf_phys2lonlat_mod, only: esmf_phys2lonlat_regrid
     use esmf_zonal_mean_mod, only: esmf_zonal_mean_calc, esmf_zonal_mean_wsums, esmf_zonal_mean_masked
     use interpolate_data, only: lininterp
     use esmf_phys2lonlat_mod, only: fields_bundle_t, nflds
+    use mpishorthand
 
     type(physics_state), intent(in) :: phys_state(begchunk:endchunk)
 
@@ -137,7 +139,11 @@ contains
     real(r8), target :: pmid_lonlat(beglon:endlon,beglat:endlat,pver)
     real(r8) :: ps_lonlat(beglon:endlon,beglat:endlat)
 
-    integer  :: lchnk, ncol, i
+    real(r8), allocatable :: ps_flat(:)
+    real(r8), allocatable :: ps_grid(:, :)
+
+    integer  :: lchnk, ncol, i, sendcnt, disp_sum
+    integer, allocatable :: recvcnts(:), displs(:)
 
     type(fields_bundle_t) :: physflds(nflds)
     type(fields_bundle_t) :: lonlatflds(nflds)
@@ -187,6 +193,35 @@ contains
     call esmf_phys2lonlat_regrid(ps_phys, ps_lonlat)
 
     call t_stopf('nlgw_regrid')
+
+    call t_startf('nlgw_mpigather')
+
+    ! gather ps_lonlat onto master proc here using MPI gather
+    allocate(recvcnts(npes))
+    allocate(displs(npes))
+
+    sendcnt = (endlon - beglon) * (endlat - beglat)
+
+    call mpigather(sendcnt, 1, mpiint, recvcnts, 1, mpiint, 0, mpicom)
+
+    if (masterproc) then
+      allocate(ps_flat(nlon*nlat))
+      allocate(ps_grid(nlon, nlat))
+      disp_sum = 0
+      do i = 1, npes
+        displs(i) = disp_sum
+        disp_sum = disp_sum + recvcnts(i)
+      end do
+    end if
+
+    call mpigatherv(ps_lonlat, sendcnt, mpir8, ps_grid, recvcnts, displs, mpir8, 0, mpicom)
+
+    call t_stopf('nlgw_mpigather')
+
+    if (masterproc) then
+      deallocate(ps_flat)
+      deallocate(ps_grid)
+    end if
 
     call t_stopf('nlgw_gather')
 
