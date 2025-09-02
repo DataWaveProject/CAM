@@ -125,8 +125,9 @@ contains
     real(r8), target :: t_phys(pver,pcols,begchunk:endchunk)
     real(r8), target :: pmid_phys(pver,pcols,begchunk:endchunk)
     real(r8) :: ps_phys(pcols,begchunk:endchunk)
-    real(r8) :: lat_phys(pcols,begchunk:endchunk)
-    real(r8) :: lon_phys(pcols,begchunk:endchunk)
+    ! for debugging only
+    ! real(r8) :: lat_phys(pcols,begchunk:endchunk)
+    ! real(r8) :: lon_phys(pcols,begchunk:endchunk)
 
     ! arrays on latlon grid
     real(r8), target :: u_lonlat(beglon:endlon,beglat:endlat,pver)
@@ -135,8 +136,6 @@ contains
     real(r8), target :: t_lonlat(beglon:endlon,beglat:endlat,pver)
     real(r8), target :: pmid_lonlat(beglon:endlon,beglat:endlat,pver)
     real(r8) :: ps_lonlat(beglon:endlon,beglat:endlat)
-    real(r8) :: lat_lonlat(beglon:endlon,beglat:endlat)
-    real(r8) :: lon_lonlat(beglon:endlon,beglat:endlat)
 
     integer  :: lchnk, ncol, i
 
@@ -158,8 +157,9 @@ contains
           pmid_phys(:,i,lchnk) = phys_state(lchnk)%pmid(i,:)
 
           ps_phys(i,lchnk) = phys_state(lchnk)%ps(i)
-          lat_phys(i,lchnk) = phys_state(lchnk)%lat(i)
-          lon_phys(i,lchnk) = phys_state(lchnk)%lon(i)
+          ! for debugging only
+          ! lat_phys(i,lchnk) = phys_state(lchnk)%lat(i)
+          ! lon_phys(i,lchnk) = phys_state(lchnk)%lon(i)
 
        end do
     end do
@@ -185,8 +185,6 @@ contains
     call esmf_phys2lonlat_regrid(physflds, lonlatflds)
 
     call esmf_phys2lonlat_regrid(ps_phys, ps_lonlat)
-    call esmf_phys2lonlat_regrid(lat_phys, lat_lonlat)
-    call esmf_phys2lonlat_regrid(lon_phys, lon_lonlat)
 
     call t_stopf('nlgw_regrid')
 
