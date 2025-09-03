@@ -33,11 +33,9 @@ module esmf_phys2lonlat_mod
 
   type(ESMF_Field) :: physfld_3d
   type(ESMF_Field) :: lonlatfld_3d
-  type(ESMF_Field) :: lonlatfld_3d_copy
 
   type(ESMF_Field) :: physfld_2d
   type(ESMF_Field) :: lonlatfld_2d
-  type(ESMF_Field) :: lonlatfld_2d_copy
 
   interface esmf_phys2lonlat_regrid
      module procedure esmf_phys2lonlat_regrid_2d
@@ -86,7 +84,6 @@ contains
     lonlatfld_3d = ESMF_FieldCreate( lonlat_grid, arrayspec, staggerloc=ESMF_STAGGERLOC_CENTER, &
                                      ungriddedLBound=(/1,1/), ungriddedUBound=(/pver,nflds/), rc=rc)
     call check_esmf_error(rc, subname//'ESMF_FieldCreate 3D lonlat fld ERROR')
-    lonlatfld_3d_copy = lonlatfld_3d
 
     ! 2D phys fld
     call ESMF_ArraySpecSet(arrayspec, 1, ESMF_TYPEKIND_R8, rc=rc)
@@ -102,20 +99,19 @@ contains
 
     lonlatfld_2d = ESMF_FieldCreate( lonlat_grid, arrayspec, staggerloc=ESMF_STAGGERLOC_CENTER, rc=rc)
     call check_esmf_error(rc, subname//'ESMF_FieldCreate 2D lonlat fld ERROR')
-    lonlatfld_2d_copy = lonlatfld_2d
 
-    call ESMF_FieldRegridStore(srcField=physfld_3d, dstField=lonlatfld_3d_copy, &
+    call ESMF_FieldRegridStore(srcField=physfld_3d, dstField=lonlatfld_3d, &
          regridMethod=ESMF_REGRIDMETHOD_BILINEAR,                          &
-         polemethod=ESMF_POLEMETHOD_NONE,                                &
+         polemethod=ESMF_POLEMETHOD_NONE,                                  &
          extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,                     &
          routeHandle=rh_phys2lonlat_3d, factorIndexList=factorIndexList,   &
          factorList=factorList, srcTermProcessing=smm_srctermproc,         &
          pipelineDepth=smm_pipelinedep, rc=rc)
     call check_esmf_error(rc, subname//'ESMF_FieldRegridStore 3D routehandle ERROR')
 
-    call ESMF_FieldRegridStore(srcField=physfld_2d, dstField=lonlatfld_2d_copy, &
+    call ESMF_FieldRegridStore(srcField=physfld_2d, dstField=lonlatfld_2d, &
          regridMethod=ESMF_REGRIDMETHOD_BILINEAR,                          &
-         polemethod=ESMF_POLEMETHOD_NONE,                                &
+         polemethod=ESMF_POLEMETHOD_NONE,                                  &
          extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,                     &
          routeHandle=rh_phys2lonlat_2d, factorIndexList=factorIndexList,   &
          factorList=factorList, srcTermProcessing=smm_srctermproc,         &
