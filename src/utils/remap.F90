@@ -143,7 +143,12 @@ contains
     real(r8), allocatable :: ps_grid(:, :)
 
     integer  :: lchnk, ncol, i, sendcnt, disp_sum
+    integer  :: lonsize, latsize
+    integer :: tompver, tompcols
+
     integer, allocatable :: recvcnts(:), displs(:)
+    integer, allocatable :: beglats(:), beglons(:)
+    integer, allocatable :: endlats(:), endlons(:)
 
     type(fields_bundle_t) :: physflds(nflds)
     type(fields_bundle_t) :: lonlatflds(nflds)
@@ -173,8 +178,7 @@ contains
     call t_stopf('nlgw_unchunk')
 
     call t_startf('nlgw_regrid')
-
-    ! regrid to lon/lat grid
+    ! this subsection does regridding
 
     physflds(1)%fld => u_phys
     physflds(2)%fld => v_phys
@@ -188,25 +192,38 @@ contains
     lonlatflds(4)%fld => t_lonlat
     lonlatflds(5)%fld => pmid_lonlat
 
+    ! actual call to regrid to lon/lat grid
     call esmf_phys2lonlat_regrid(physflds, lonlatflds)
-
     call esmf_phys2lonlat_regrid(ps_phys, ps_lonlat)
+
+    ! TODO
+    ! convert t to theta before gathering
+    ! we dont need ps we need phis
 
     call t_stopf('nlgw_regrid')
 
     call t_startf('nlgw_mpigather')
+    ! this subsection gathers all variables onto a single process
 
-    ! gather ps_lonlat onto master proc here using MPI gather
     allocate(recvcnts(npes))
     allocate(displs(npes))
+    allocate(beglats(npes))
+    allocate(beglons(npes))
+    allocate(endlats(npes))
+    allocate(endlons(npes))
+    allocate(ps_flat(nlon * nlat))
+    allocate(ps_grid(nlon, nlat))
 
-    sendcnt = (endlon - beglon) * (endlat - beglat)
+    sendcnt = (endlon - beglon + 1) * (endlat - beglat + 1)
 
+    ! mpi gather book-keeping
     call mpigather(sendcnt, 1, mpiint, recvcnts, 1, mpiint, 0, mpicom)
+    call mpigather(beglat, 1, mpiint, beglats, 1, mpiint, 0, mpicom)
+    call mpigather(beglon, 1, mpiint, beglons, 1, mpiint, 0, mpicom)
+    call mpigather(endlat, 1, mpiint, endlats, 1, mpiint, 0, mpicom)
+    call mpigather(endlon, 1, mpiint, endlons, 1, mpiint, 0, mpicom)
 
     if (masterproc) then
-      allocate(ps_flat(nlon*nlat))
-      allocate(ps_grid(nlon, nlat))
       disp_sum = 0
       do i = 1, npes
         displs(i) = disp_sum
@@ -214,11 +231,32 @@ contains
       end do
     end if
 
-    call mpigatherv(ps_lonlat, sendcnt, mpir8, ps_grid, recvcnts, displs, mpir8, 0, mpicom)
+    ! gather variables onto master proc into a flat array (can't do 2D/3D mpigather)
+    call mpigatherv(ps_lonlat(beglon:endlon, beglat:endlat), sendcnt, mpir8, ps_flat, recvcnts, displs, mpir8, 0, mpicom)
+
+    tompver = pver
+    tompcols = pcols
+    print *, tompver
+    print *, tompcols
+
+    if (masterproc) then
+      do i = 1, npes
+        lonsize = endlons(i) - beglons(i) + 1
+        latsize = endlats(i) - beglats(i) + 1
+        ! reshape each ranks flattended data and populate each block into a single lonlat grid
+        ps_grid(beglons(i):endlons(i), beglats(i):endlats(i)) = &
+          reshape(ps_flat(displs(i)+1:displs(i)+sendcnt), (/ lonsize, latsize /))
+      end do
+    end if
 
     call t_stopf('nlgw_mpigather')
 
+    ! TODO
+    ! convert fluxes to tendencies after regridding back to cubed sphere
+    ! that way we dont need pmid
+
     if (masterproc) then
+      ! TODO ALL deallocates here
       deallocate(ps_flat)
       deallocate(ps_grid)
     end if
