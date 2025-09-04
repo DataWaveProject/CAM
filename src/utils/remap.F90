@@ -128,8 +128,7 @@ contains
     real(r8), target :: v_phys(pver,pcols,begchunk:endchunk)
     real(r8), target :: w_phys(pver,pcols,begchunk:endchunk)
     real(r8), target :: t_phys(pver,pcols,begchunk:endchunk)
-    real(r8), target :: pmid_phys(pver,pcols,begchunk:endchunk)
-    real(r8) :: ps_phys(pcols,begchunk:endchunk)
+    real(r8) :: phis_phys(pcols,begchunk:endchunk)
     ! for debugging only
     ! real(r8) :: lat_phys(pcols,begchunk:endchunk)
     ! real(r8) :: lon_phys(pcols,begchunk:endchunk)
@@ -139,15 +138,14 @@ contains
     real(r8), target :: v_lonlat(beglon:endlon,beglat:endlat,pver)
     real(r8), target :: w_lonlat(beglon:endlon,beglat:endlat,pver)
     real(r8), target :: t_lonlat(beglon:endlon,beglat:endlat,pver)
-    real(r8), target :: pmid_lonlat(beglon:endlon,beglat:endlat,pver)
-    real(r8) :: ps_lonlat(beglon:endlon,beglat:endlat)
+    real(r8) :: phis_lonlat(beglon:endlon,beglat:endlat)
 
-    real(r8), allocatable :: ps_flat(:)
-    real(r8), allocatable :: ps_grid(:, :)
+    real(r8), allocatable :: flat_array(:)
+    real(r8), dimension(:, :), allocatable :: phis_grid
+    real(r8), dimension(:,:,:), allocatable :: u_grid, v_grid, w_grid, t_grid
 
     integer  :: lchnk, ncol, i, sendcnt, disp_sum
     integer  :: lonsize, latsize
-    integer :: tompver, tompcols
 
     integer, allocatable :: recvcnts(:), displs(:)
     integer, allocatable :: beglats(:), beglons(:)
@@ -171,9 +169,8 @@ contains
           v_phys(:,i,lchnk)    = phys_state(lchnk)%v(i,:)
           w_phys(:,i,lchnk)    = phys_state(lchnk)%omega(i,:)
           t_phys(:,i,lchnk)    = phys_state(lchnk)%t(i,:)
-          pmid_phys(:,i,lchnk) = phys_state(lchnk)%pmid(i,:)
 
-          ps_phys(i,lchnk) = phys_state(lchnk)%ps(i)
+          phis_phys(i,lchnk) = phys_state(lchnk)%ps(i)
           ! for debugging only
           ! lat_phys(i,lchnk) = phys_state(lchnk)%lat(i)
           ! lon_phys(i,lchnk) = phys_state(lchnk)%lon(i)
@@ -190,17 +187,15 @@ contains
     physflds(2)%fld => v_phys
     physflds(3)%fld => w_phys
     physflds(4)%fld => t_phys
-    physflds(5)%fld => pmid_phys
 
     lonlatflds(1)%fld => u_lonlat
     lonlatflds(2)%fld => v_lonlat
     lonlatflds(3)%fld => w_lonlat
     lonlatflds(4)%fld => t_lonlat
-    lonlatflds(5)%fld => pmid_lonlat
 
     ! actual call to regrid to lon/lat grid
     call esmf_phys2lonlat_regrid(physflds, lonlatflds)
-    call esmf_phys2lonlat_regrid(ps_phys, ps_lonlat)
+    call esmf_phys2lonlat_regrid(phis_phys, phis_lonlat)
 
     ! TODO
     ! convert t to theta before gathering
@@ -217,8 +212,6 @@ contains
     allocate(beglons(npes))
     allocate(endlats(npes))
     allocate(endlons(npes))
-    allocate(ps_flat(nlon * nlat))
-    allocate(ps_grid(nlon, nlat))
 
     sendcnt = (endlon - beglon + 1) * (endlat - beglat + 1)
 
@@ -237,23 +230,30 @@ contains
       end do
     end if
 
-    ! gather variables onto master proc into a flat array (can't do 2D/3D mpigather)
-    call mpigatherv(ps_lonlat(beglon:endlon, beglat:endlat), sendcnt, mpir8, ps_flat, recvcnts, displs, mpir8, 0, mpicom)
+    allocate(flat_array(nlon * nlat))
 
-    tompver = pver
-    tompcols = pcols
-    print *, tompver
-    print *, tompcols
+    call gather_2d(phis_lonlat(beglon:endlon, beglat:endlat), sendcnt, flat_array, recvcnts, displs, &
+                  phis_grid, beglons, endlons, beglats, endlats)
 
+
+    sendcnt = sendcnt * pver
     if (masterproc) then
       do i = 1, npes
-        lonsize = endlons(i) - beglons(i) + 1
-        latsize = endlats(i) - beglats(i) + 1
-        ! reshape each ranks flattended data and populate each block into a single lonlat grid
-        ps_grid(beglons(i):endlons(i), beglats(i):endlats(i)) = &
-          reshape(ps_flat(displs(i)+1:displs(i)+sendcnt), (/ lonsize, latsize /))
+        displs(i) = displs(i) * pver
+        recvcnts(i) = recvcnts(i) * pver
       end do
     end if
+    deallocate(flat_array)
+    allocate(flat_array(nlon * nlat * pver))
+
+    call gather_3d(u_lonlat(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, recvcnts, displs, &
+                u_grid, beglons, endlons, beglats, endlats)
+    call gather_3d(v_lonlat(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, recvcnts, displs, &
+                v_grid, beglons, endlons, beglats, endlats)
+    call gather_3d(w_lonlat(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, recvcnts, displs, &
+                w_grid, beglons, endlons, beglats, endlats)
+    call gather_3d(t_lonlat(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, recvcnts, displs, &
+                t_grid, beglons, endlons, beglats, endlats)
 
     call t_stopf('nlgw_mpigather')
 
@@ -263,13 +263,76 @@ contains
 
     if (masterproc) then
       ! TODO ALL deallocates here
-      deallocate(ps_flat)
-      deallocate(ps_grid)
+      deallocate(u_grid)
+      deallocate(v_grid)
+      deallocate(w_grid)
+      deallocate(t_grid)
+      deallocate(phis_grid)
     end if
 
     call t_stopf('nlgw_gather')
 
   end subroutine nlgw_regrid
+
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  subroutine gather_2d(local_array, sendcnt, flat_array, recvcnts, displs, grid_out, beglons, endlons, beglats, endlats)
+    use mpishorthand
+    use esmf_lonlat_grid_mod, only: nlat, nlon
+    real(r8), intent(in) :: local_array(:,:)  ! Local 2D array section
+    integer, intent(in) :: sendcnt
+    real(r8), intent(inout) :: flat_array(:)     ! Flattened array for gathering
+    integer, intent(in) :: recvcnts(:), displs(:)
+    real(r8), allocatable, intent(out) :: grid_out(:,:)    ! Full gathered grid
+    integer, intent(in) :: beglons(:), endlons(:)
+    integer, intent(in) :: beglats(:), endlats(:)
+
+    integer :: i, lonsize, latsize
+
+    ! gather variables onto master proc into a flat array (can't do 2D/3D mpigather)
+    call mpigatherv(local_array, sendcnt, mpir8, flat_array, recvcnts, displs, mpir8, 0, mpicom)
+
+    if (masterproc) then
+        allocate(grid_out(nlon, nlat))
+        do i = 1, npes
+            lonsize = endlons(i) - beglons(i) + 1
+            latsize = endlats(i) - beglats(i) + 1
+            ! reshape each ranks flattended data and populate each block into a single lonlat grid
+            grid_out(beglons(i):endlons(i), beglats(i):endlats(i)) = &
+                reshape(flat_array(displs(i)+1:displs(i)+sendcnt), (/ lonsize, latsize /))
+        end do
+    end if
+  end subroutine gather_2d
+
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  subroutine gather_3d(local_array, sendcnt, flat_array, recvcnts, displs, grid_out, beglons, endlons, beglats, endlats)
+    use mpishorthand
+    use esmf_lonlat_grid_mod, only: nlat, nlon
+    real(r8), intent(in) :: local_array(:,:,:)  ! Local 2D array section
+    integer, intent(in) :: sendcnt
+    real(r8), intent(inout) :: flat_array(:)     ! Flattened array for gathering
+    integer, intent(in) :: recvcnts(:), displs(:)
+    real(r8), allocatable, intent(out) :: grid_out(:,:,:)    ! Full gathered grid
+    integer, intent(in) :: beglons(:), endlons(:)
+    integer, intent(in) :: beglats(:), endlats(:)
+
+    integer :: i, lonsize, latsize
+
+    ! gather variables onto master proc into a flat array (can't do 2D/3D mpigather)
+    call mpigatherv(local_array, sendcnt, mpir8, flat_array, recvcnts, displs, mpir8, 0, mpicom)
+
+    if (masterproc) then
+        allocate(grid_out(nlon, nlat, pver))
+        do i = 1, npes
+            lonsize = endlons(i) - beglons(i) + 1
+            latsize = endlats(i) - beglats(i) + 1
+            ! reshape each ranks flattended data and populate each block into a single lonlat grid
+            grid_out(beglons(i):endlons(i), beglats(i):endlats(i), 1:pver) = &
+                reshape(flat_array(displs(i)+1:displs(i)+sendcnt), (/ lonsize, latsize, pver /))
+        end do
+    end if
+  end subroutine gather_3d
 
   !-----------------------------------------------------------------------------
   !-----------------------------------------------------------------------------
