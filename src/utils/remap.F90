@@ -39,6 +39,7 @@ contains
     use esmf_lonlat_grid_mod, only: esmf_lonlat_grid_init
     use esmf_phys_mesh_mod, only: esmf_phys_mesh_init
     use esmf_phys2lonlat_mod, only: esmf_phys2lonlat_init
+    use esmf_lonlat2phys_mod, only: esmf_lonlat2phys_init
 
     integer, parameter :: reg_decomp = 332
 
@@ -55,6 +56,7 @@ contains
     call esmf_lonlat_grid_init(64, 128)
     call esmf_phys_mesh_init()
     call esmf_phys2lonlat_init()
+    call esmf_lonlat2phys_init()
 
     ! for the lon-lat grid
     allocate(grid_map(4, ((endlon - beglon + 1) * (endlat - beglat + 1))), stat=astat)
@@ -121,6 +123,7 @@ contains
     use esmf_zonal_mean_mod, only: esmf_zonal_mean_calc, esmf_zonal_mean_wsums, esmf_zonal_mean_masked
     use interpolate_data, only: lininterp
     use esmf_phys2lonlat_mod, only: fields_bundle_t, nflds
+    use esmf_lonlat2phys_mod, only: esmf_lonlat2phys_regrid, n_flx_flds
     use mpishorthand
 
     type(physics_state), intent(in) :: phys_state(begchunk:endchunk)
@@ -153,6 +156,9 @@ contains
 
     type(fields_bundle_t) :: physflds(nflds)
     type(fields_bundle_t) :: lonlatflds(nflds)
+
+    type(fields_bundle_t) :: phys_flx_flds(n_flx_flds)
+    type(fields_bundle_t) :: lonlat_flx_flds(n_flx_flds)
 
     call t_startf('nlgw_gather')
 
@@ -326,10 +332,12 @@ contains
   !-----------------------------------------------------------------------------
   subroutine nlgw_regrid_final()
     use esmf_phys2lonlat_mod, only: esmf_phys2lonlat_destroy
+    use esmf_lonlat2phys_mod, only: esmf_lonlat2phys_destroy
     use esmf_lonlat_grid_mod, only: esmf_lonlat_grid_destroy
     use esmf_phys_mesh_mod, only: esmf_phys_mesh_destroy
 
     call esmf_phys2lonlat_destroy()
+    call esmf_lonlat2phys_destroy()
     call esmf_lonlat_grid_destroy()
     call esmf_phys_mesh_destroy()
 
