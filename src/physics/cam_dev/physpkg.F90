@@ -1183,7 +1183,7 @@ contains
     use metdata,         only: get_met_srf2
 #endif
     use hemco_interface, only: HCOI_Chunk_Run
-    use nlgw_remap_mod,   only: nlgw_regrid_init, nlgw_regrid, nlgw_regrid_final
+    use nlgw_remap_mod,   only: nlgw_regrid_init, nlgw_latlon_gather, nlgw_latlon_scatter, nlgw_regrid_final
     !
     ! Input arguments
     !
@@ -1246,7 +1246,8 @@ contains
     call t_adj_detailf(+1)
 
     call nlgw_regrid_init()
-    call nlgw_regrid(phys_state)
+    call nlgw_latlon_gather(phys_state)
+    call nlgw_latlon_scatter()
     stop
 
 !$OMP PARALLEL DO PRIVATE (C, NCOL, phys_buffer_chunk)
