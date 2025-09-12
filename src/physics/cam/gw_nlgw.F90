@@ -179,6 +179,8 @@ subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
   call outfld('UTGW_NL', utgw, ncol, lchnk)
   call outfld('VTGW_NL', vtgw, ncol, lchnk)
 
+  call outfld('UFLUX_NL', uflux, ncol, lchnk)
+  call outfld('VFLUX_NL', vflux, ncol, lchnk)
 
   ! update the tendencies
   ptend%u(:ncol,:pver) = ptend%u(:ncol,:pver) + utgw(:ncol,:pver)
@@ -230,6 +232,8 @@ subroutine gw_nlgw_dp_init(model_path)
 
   call addfld('UTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW zonal wind tendency')
   call addfld('VTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW meridional wind tendency')
+  call addfld('UFLUX_NL', (/ 'lev' /), 'A', 'm/s', 'Nonlinear GW zonal wind flux')
+  call addfld('VFLUX_NL', (/ 'lev' /), 'A', 'm/s', 'Nonlinear GW meridional wind flux')
 
 end subroutine gw_nlgw_dp_init
 
