@@ -214,8 +214,6 @@ end subroutine gw_nlgw_dp_ml
 
 subroutine gw_nlgw_dp_init(model_path)
 
-  use cam_history,    only: addfld
-
   character(len=*), intent(in) :: model_path  ! Filepath to PyTorch Torchscript net
   integer :: device_id
 
