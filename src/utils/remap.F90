@@ -26,7 +26,6 @@ module nlgw_remap_mod
   public :: nlgw_regrid_final
 
   ! these arrays contain the regridded variables of interest for the NN
-  real(r8), dimension(:, :), allocatable, public :: phis_grid
   real(r8), dimension(:,:,:), allocatable, public :: u_grid, v_grid, w_grid, t_grid
   real(r8), dimension(:,:,:), allocatable, public :: utgw_grid, vtgw_grid
 
@@ -136,7 +135,6 @@ contains
       allocate(v_grid(nlon, nlat, pver))
       allocate(w_grid(nlon, nlat, pver))
       allocate(t_grid(nlon, nlat, pver))
-      allocate(phis_grid(nlon, nlat))
       allocate(utgw_grid(nlon, nlat, pver))
       allocate(vtgw_grid(nlon, nlat, pver))
     end if
@@ -242,7 +240,6 @@ contains
     real(r8), target :: v_phys(pver,pcols,begchunk:endchunk)
     real(r8), target :: w_phys(pver,pcols,begchunk:endchunk)
     real(r8), target :: t_phys(pver,pcols,begchunk:endchunk)
-    real(r8) :: phis_phys(pcols,begchunk:endchunk)
     ! for debugging only
     ! real(r8) :: lat_phys(pcols,begchunk:endchunk)
     ! real(r8) :: lon_phys(pcols,begchunk:endchunk)
@@ -252,7 +249,6 @@ contains
     real(r8), target :: v_lonlat(beglon:endlon,beglat:endlat,pver)
     real(r8), target :: w_lonlat(beglon:endlon,beglat:endlat,pver)
     real(r8), target :: t_lonlat(beglon:endlon,beglat:endlat,pver)
-    real(r8) :: phis_lonlat(beglon:endlon,beglat:endlat)
 
     real(r8), allocatable :: flat_array(:)
 
@@ -274,7 +270,6 @@ contains
           w_phys(:,i,lchnk)    = phys_state(lchnk)%omega(i,:)
           t_phys(:,i,lchnk)    = phys_state(lchnk)%t(i,:)
 
-          phis_phys(i,lchnk) = phys_state(lchnk)%ps(i)
           ! for debugging only
           ! lat_phys(i,lchnk) = phys_state(lchnk)%lat(i)
           ! lon_phys(i,lchnk) = phys_state(lchnk)%lon(i)
@@ -285,7 +280,6 @@ contains
     call t_stopf('nlgw_unchunk')
 
     call t_startf('nlgw_latlon_gather')
-    ! this subsection does regridding
 
     physflds(1)%fld => u_phys
     physflds(2)%fld => v_phys
@@ -299,18 +293,13 @@ contains
 
     ! actual call to regrid to lon/lat grid
     call esmf_phys2lonlat_regrid(physflds, lonlatflds)
-    call esmf_phys2lonlat_regrid(phis_phys, phis_lonlat)
-
-    ! TODO
-    ! convert t to theta before gathering
-    ! we dont need ps we need phis
 
     call t_stopf('nlgw_latlon_gather')
 
     call t_startf('nlgw_mpigather')
     ! this subsection gathers all variables onto a single process
 
-    sendcnt = (endlon - beglon + 1) * (endlat - beglat + 1)
+    sendcnt = (endlon - beglon + 1) * (endlat - beglat + 1) * pver
 
     ! mpi gather book-keeping
     call mpigather(sendcnt, 1, mpiint, recvcnts, 1, mpiint, 0, mpicom)
@@ -326,19 +315,6 @@ contains
         disp_sum = disp_sum + recvcnts(i)
       end do
     end if
-
-    allocate(flat_array(nlon * nlat))
-
-    call gather_2d(phis_lonlat(beglon:endlon, beglat:endlat), sendcnt, flat_array, phis_grid)
-
-    sendcnt = sendcnt * pver
-    if (masterproc) then
-      do i = 1, npes
-        displs(i) = displs(i) * pver
-        recvcnts(i) = recvcnts(i) * pver
-      end do
-    end if
-    deallocate(flat_array)
     allocate(flat_array(nlon * nlat * pver))
 
     call gather_3d(u_lonlat(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, u_grid)
@@ -389,7 +365,7 @@ contains
   !-----------------------------------------------------------------------------
   subroutine gather_3d(local_array, sendcnt, flat_array, grid_out)
     use mpishorthand
-    real(r8), intent(in) :: local_array(:,:,:)  ! Local 2D array section
+    real(r8), intent(in) :: local_array(:,:,:)  ! Local 3D array section
     integer, intent(in) :: sendcnt
     real(r8), intent(inout) :: flat_array(:)     ! Flattened array for gathering
     real(r8), allocatable, intent(inout) :: grid_out(:,:,:)    ! Full gathered grid
@@ -415,7 +391,7 @@ contains
   !-----------------------------------------------------------------------------
   subroutine scatter_3d(grid_in, sendcnt, flat_array, lonlat_out)
     use mpishorthand
-    real(r8), allocatable, intent(in) :: grid_in(:,:,:)  ! Local 2D array section
+    real(r8), allocatable, intent(in) :: grid_in(:,:,:)  ! Local 3D array section
     integer, intent(in) :: sendcnt
     real(r8), intent(inout) :: flat_array(:)     ! temporary storage in flat array
     real(r8), target, intent(inout) :: lonlat_out(:,:,:)    ! Full scattered grid
@@ -431,7 +407,7 @@ contains
         end do
     end if
 
-    ! scatter variables onto master proc into a flat array (can't do 2D/3D mpiscatter)
+    ! scatter variables from flat_array back to all processes
     call mpiscatterv(flat_array, recvcnts, displs, mpir8, lonlat_out, sendcnt, mpir8, 0, mpicom)
 
   end subroutine scatter_3d
@@ -452,7 +428,6 @@ contains
 
     ! TODO double check ALL deallocates here
     if (masterproc) then
-      deallocate(phis_grid)
       deallocate(u_grid)
       deallocate(v_grid)
       deallocate(w_grid)
@@ -467,6 +442,9 @@ contains
     deallocate(beglons)
     deallocate(endlats)
     deallocate(endlons)
+
+    deallocate(utgw_phys)
+    deallocate(vtgw_phys)
 
   end subroutine nlgw_regrid_final
 
