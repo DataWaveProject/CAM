@@ -12,7 +12,7 @@ use cam_abortutils, only: endrun
 use cam_logfile,    only: iulog
 use physconst,      only: cappa, pi
 use interpolate_data, only: lininterp
-use cam_history,    only: outfld
+use cam_history,    only: outfld, addfld
 
 use ftorch
 
