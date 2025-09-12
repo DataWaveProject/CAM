@@ -5,7 +5,7 @@ module gw_nlgw
 !
 
 use gw_utils, only: r8, r4
-use ppgrid,   only: pcols, pver !vertical levels
+use ppgrid,   only: pver !vertical levels
 use physics_types,  only: physics_state, physics_ptend
 use spmd_utils,     only: mpicom, mstrid=>masterprocid, masterproc, mpi_real8, iam
 use cam_abortutils, only: endrun
