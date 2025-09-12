@@ -44,7 +44,7 @@ module gw_drag
   use gw_front,       only: CMSourceDesc
   use gw_ml,          only: gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml_final, &
                             gw_drag_convect_dp_ml
-  use gw_nlgw,        only: gw_nlgw_dp_ml, gw_nlgw_dp_init, gw_nlgw_dp_finalize
+  use gw_nlgw_ann,    only: gw_nlgw_ann_infer, gw_nlgw_ann_init, gw_nlgw_ann_finalize
 
 ! Typical module header
   implicit none
@@ -578,7 +578,7 @@ subroutine gw_init()
        errMsg(__FILE__, __LINE__))
 
   if ( use_gw_nlgw ) then
-    call gw_nlgw_dp_init(gw_nlgw_model_path)
+    call gw_nlgw_ann_init(gw_nlgw_model_path)
   end if
 
   if ( use_gw_oro ) then
@@ -1299,7 +1299,7 @@ subroutine gw_final()
      call gw_drag_convect_dp_ml_final()
   endif
   if ( use_gw_nlgw ) then
-    call gw_nlgw_dp_finalize()
+    call gw_nlgw_ann_finalize()
   end if
 end subroutine gw_final
 
@@ -1549,7 +1549,7 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   flx_heat = 0._r8
 
   if ( use_gw_nlgw ) then
-    call gw_nlgw_dp_ml(state1,ptend,lchnk)
+    call gw_nlgw_ann_infer(state1,ptend,lchnk)
   end if
 
   if (use_gw_convect_dp) then
