@@ -163,7 +163,7 @@ subroutine gw_nlgw_ann_infer(state_in, ptend, lchnk)
   call construct_input()
 
   ! send all columns from this process
-  call torch_tensor_from_array(tensor_in(1), net_inputs, layout, torch_kCUDA, device_id)
+  call torch_tensor_from_array(tensor_in(1), net_inputs, layout, torch_kCPU)
   call torch_tensor_from_array(tensor_out(1), net_outputs, layout, torch_kCPU)
 
   ! Run net forward on data
@@ -218,10 +218,10 @@ subroutine gw_nlgw_ann_init(model_path)
   character(len=*), intent(in) :: model_path  ! Filepath to PyTorch Torchscript net
   integer :: device_id
 
-  device_id = mod(iam, 2)
+  ! device_id = mod(iam, 2)
 
   ! Load the convective drag net from TorchScript file
-  call torch_model_load(nlgw_model, model_path, device_type=torch_kCUDA, device_index=device_id)
+  call torch_model_load(nlgw_model, model_path, device_type=torch_kCPU)
   ! read in normalisation weights
   call read_norms()
 
