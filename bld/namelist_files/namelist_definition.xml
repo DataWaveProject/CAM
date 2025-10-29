@@ -1332,10 +1332,17 @@ Whether or not to enable gravity waves produced by shallow convection.
 Default: .false.
 </entry>
 
-<entry id="use_gw_nlgw" type="logical" category="gw_drag"
+<entry id="use_gw_nlgw_ann" type="logical" category="gw_drag"
        group="phys_ctl_nl" valid_values="" >
 Whether or not to enable gravity waves produced by non-local gravity
-wave ML model.
+wave ANN ML model.
+Default: set by build-namelist.
+</entry>
+
+<entry id="use_gw_nlgw_unet" type="logical" category="gw_drag"
+       group="phys_ctl_nl" valid_values="" >
+Whether or not to enable gravity waves produced by non-local gravity
+wave UNet ML model.
 Default: set by build-namelist.
 </entry>
 
@@ -1428,10 +1435,16 @@ Absolute filepath to the deep convection gravity wave neural net used when
 Default: .false.
 </entry>
 
-<entry id="gw_nlgw_model_path" type="char*132" input_pathname="abs" category="gw_drag"
+<entry id="gw_nlgw_model_path_ann" type="char*132" input_pathname="abs" category="gw_drag"
        group="gw_drag_nl" valid_values="" >
 Absolute filepath to the non local gravity wave traced model (.pt)
-used when `use_gw_nlgw` is set to `.true.`.
+used when `use_gw_nlgw_ann` is set to `.true.`.
+</entry>
+
+<entry id="gw_nlgw_model_path_unet" type="char*132" input_pathname="abs" category="gw_drag"
+       group="gw_drag_nl" valid_values="" >
+Absolute filepath to the non local gravity wave traced model (.pt)
+used when `use_gw_nlgw_unet` is set to `.true.`.
 </entry>
 
 <entry id="effgw_cm" type="real" category="gw_drag"

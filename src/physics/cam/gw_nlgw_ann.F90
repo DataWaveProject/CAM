@@ -11,6 +11,7 @@ use spmd_utils,     only: mpicom, mstrid=>masterprocid, masterproc, mpi_real8, i
 use cam_abortutils, only: endrun
 use cam_logfile,    only: iulog
 use physconst,      only: cappa, pi
+use gw_nlgw_utils,  only: p0
 use interpolate_data, only: lininterp
 
 use ftorch
@@ -20,8 +21,6 @@ implicit none
 public :: gw_nlgw_ann_infer, gw_nlgw_ann_init, gw_nlgw_ann_finalize
 
 private
-
-integer, parameter :: p0 = 100000 ! 1000 hPa (Pa)
 
 type(torch_model) :: nlgw_model ! pytorch model
 

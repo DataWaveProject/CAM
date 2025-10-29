@@ -120,15 +120,26 @@ gw_convect_dp_ml_norms='/path/to/norms'
 
 To run CAM using the non local gravity wave ML model to replace all parameterisations use the following configuration
 ```fortran
-use_gw_nlgw=.true.
-gw_nlgw_model_path='/path/to/nlgw-scripted-model.pt'
+use_gw_nlgw_ann=.true.
+use_gw_nlgw_unet=.true.
+gw_nlgw_model_path_ann='/path/to/ann-scripted-model.pt'
+gw_nlgw_model_path_unet='/path/to/unet-scripted-model.pt'
 ```
 
-* `use_gw_nlgw` (`logical`)
+* `use_gw_nlgw_ann` (`logical`)
 
-   Whether or not to use the ML scheme for non local gravity waves. Default: `.false.`
+   Whether or not to use the ANN ML scheme for non local gravity waves. Default: `.false.`
 
-* `gw_nlgw_model_path`
+* `gw_nlgw_model_path_ann`
+
+   Absolute filepath to the non local gravity wave neural net used when `use_gw_nlgw` is set to `.true.` (`.pt`
+   extension).
+
+* `use_gw_nlgw_unet` (`logical`)
+
+   Whether or not to use the UNET ML scheme for non local gravity waves. Default: `.false.`
+
+* `gw_nlgw_model_path_unet`
 
    Absolute filepath to the non local gravity wave neural net used when `use_gw_nlgw` is set to `.true.` (`.pt`
    extension).

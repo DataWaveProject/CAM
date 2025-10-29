@@ -1,13 +1,56 @@
 module gw_nlgw_utils
 
 use gw_utils, only: r8, r4
-use ppgrid,   only: pver !vertical levels
+use ppgrid, only: begchunk, endchunk, pcols, pver, pverp
 
 implicit none
 
 public :: cbrt, flux_to_forcing
+public :: phys_vars, lonlat_vars
+integer, parameter, public :: p0 = 100000 ! 1000 hPa (Pa)
+integer, parameter, public :: nlon = 288  ! number of longitude points on lonlat grid
+integer, parameter, public :: nlat = 192  ! number of latitude points on lonlat grid
 
 private
+
+! variables on cubed-sphere "phys" grid
+type phys_vars
+!dimension(pver,pcols,begchunk:endchunk)
+real(r8), dimension(:,:,:), allocatable :: &
+  u,       &! zonal wind (m/s)
+  v,       &! meridional wind (m/s)
+  theta,   &! temperature (K)
+  w,       &! vertical pressure velocity (Pa/s)
+  pmid      ! midpoint pressure (Pa)
+
+real(r8), dimension(:,:,:), allocatable :: &
+  uflux,   &! zonal fluxes
+  vflux     ! meridional fluxes
+
+real(r8), dimension(:,:,:), allocatable :: &
+  utgw,    &! zonal tendencies
+  vtgw      ! meridional tendencies
+
+! for debugging only
+! dimension(pcols,begchunk:endchunk)
+real(r8), dimension(:,:), allocatable :: &
+  lat,     &
+  lon
+end type
+
+! variables on regular lonlat grid
+type lonlat_vars
+! dimension(lon,lat,pver)
+real(r8), dimension(:,:,:), allocatable :: &
+  u,       &! zonal wind (m/s)
+  v,       &! meridional wind (m/s)
+  theta,   &! temperature (K)
+  w         ! vertical pressure velocity (Pa/s)
+
+real(r8), dimension(:,:,:), allocatable :: &
+  uflux,    &! zonal fluxes
+  vflux      ! meridional fluxes
+end type
 
 contains
 

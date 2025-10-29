@@ -1183,7 +1183,9 @@ contains
     use metdata,         only: get_met_srf2
 #endif
     use hemco_interface, only: HCOI_Chunk_Run
-    use nlgw_remap_mod,   only: nlgw_regrid_init, nlgw_latlon_gather, nlgw_latlon_scatter, nlgw_regrid_final
+    use nlgw_remap_mod,  only: nlgw_regrid_init, nlgw_latlon_gather, nlgw_latlon_scatter, nlgw_regrid_final
+    use gw_nlgw_unet,    only: gw_nlgw_unet_init, gw_nlgw_unet_infer, gw_nlgw_unet_finalize
+    use gw_nlgw_utils,   only: phys_vars, lonlat_vars, flux_to_forcing
     !
     ! Input arguments
     !
@@ -1204,6 +1206,10 @@ contains
     integer :: c                                 ! chunk index
     integer :: ncol                              ! number of columns
     type(physics_buffer_desc),pointer, dimension(:)     :: phys_buffer_chunk
+    ! for ML UNet model
+    type(phys_vars), target :: phys
+    type(lonlat_vars), target :: lonlat, gathered_lonlat
+    real(r8), dimension(pcols,pver) :: temp_uflux, temp_vflux, temp_utgw, temp_vtgw
     !
     ! If exit condition just return
     !
@@ -1245,9 +1251,37 @@ contains
     call t_startf ('ac_physics')
     call t_adj_detailf(+1)
 
-    call nlgw_regrid_init()
-    call nlgw_latlon_gather(phys_state)
-    call nlgw_latlon_scatter()
+    call nlgw_regrid_init(phys, lonlat, gathered_lonlat)
+
+    ! gather data from all procs, all chunks into a global lonlat grid
+    call nlgw_latlon_gather(phys_state, phys, lonlat, gathered_lonlat)
+
+    if (masterproc) then
+      call gw_nlgw_unet_init('/glade/u/home/tmeltzer/nonlocal_gwfluxes/era5_training/nlgw_unet_gpu_scripted.pt')
+      ! run UNet model on globally gathered lonlat grid to compute fluxes
+      call gw_nlgw_unet_infer(gathered_lonlat)
+      call gw_nlgw_unet_finalize()
+    endif
+
+    ! scatter back to all procs, into chunks and regrid back to phys grid
+    call nlgw_latlon_scatter(phys, lonlat, gathered_lonlat)
+
+    do c = begchunk,endchunk
+      ncol = phys_state(c)%ncol
+      temp_uflux(:ncol,:pver) = transpose(phys%uflux(:pver,:ncol,c))
+      temp_vflux(:ncol,:pver) = transpose(phys%vflux(:pver,:ncol,c))
+
+      ! update tendencies
+      call flux_to_forcing(temp_uflux, temp_utgw, phys_state(c)%pmid, ncol)
+      call flux_to_forcing(temp_vflux, temp_vtgw, phys_state(c)%pmid, ncol)
+      ! ptend%u(:ncol,:pver) = ptend%u(:ncol,:pver) + utgw(:ncol,:pver)
+      ! ptend%v(:ncol,:pver) = ptend%v(:ncol,:pver) + vtgw(:ncol,:pver)
+      ! call update_enegry(ptend)
+    end do
+
+    ! TODO check energy conservation after tendency update
+    ! TODO look at Will Chapman's code
+    call nlgw_regrid_final(phys, lonlat, gathered_lonlat)
     stop
 
 !$OMP PARALLEL DO PRIVATE (C, NCOL, phys_buffer_chunk)
