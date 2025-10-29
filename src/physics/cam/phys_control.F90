@@ -98,7 +98,8 @@ logical, public, protected :: use_gw_front = .false.      ! Frontogenesis.
 logical, public, protected :: use_gw_front_igw = .false.  ! Frontogenesis to inertial spectrum.
 logical, public, protected :: use_gw_convect_dp = .false. ! Deep convection.
 logical, public, protected :: use_gw_convect_sh = .false. ! Shallow convection.
-logical, public, protected :: use_gw_nlgw = .false.       ! non local GW ML model
+logical, public, protected :: use_gw_nlgw_ann = .false.   ! non local GW ML model (ANN - single column)
+logical, public, protected :: use_gw_nlgw_unet = .false.  ! non local GW ML model (UNet - global non local)
 
 ! FV dycore angular momentum correction
 logical, public, protected :: fv_am_correction = .false.
@@ -137,7 +138,7 @@ subroutine phys_ctl_readnl(nlfile)
       history_waccmx, history_chemistry, history_carma, history_clubb, history_dust, &
       history_cesm_forcing, history_scwaccm_forcing, history_chemspecies_srf, &
       do_clubb_sgs, state_debug_checks, use_hetfrz_classnuc, use_gw_oro, use_gw_front, &
-      use_gw_front_igw, use_gw_convect_dp, use_gw_convect_sh, use_gw_nlgw, cld_macmic_num_steps, &
+      use_gw_front_igw, use_gw_convect_dp, use_gw_convect_sh, use_gw_nlgw_ann, use_gw_nlgw_unet, cld_macmic_num_steps, &
       offline_driver, convproc_do_aer, cam_snapshot_before_num, cam_snapshot_after_num, &
       cam_take_snapshot_before, cam_take_snapshot_after, cam_physics_mesh, use_hemco, do_hb_above_clubb
    !-----------------------------------------------------------------------------
@@ -157,7 +158,10 @@ subroutine phys_ctl_readnl(nlfile)
    end if
 
    ! if we are using the nlgw ML model we need to disable all other parameterizations
-   if (masterproc .and. use_gw_nlgw==.true.) then
+   if (masterproc .and. (use_gw_nlgw_ann .or. use_gw_nlgw_unet)) then
+      if (use_gw_nlgw_ann .and. use_gw_nlgw_unet) then
+        call endrun(subname // ':: ERROR you can only select UNet or ANN not both.')
+      end if
       use_gw_oro = .false.
       use_gw_front = .false.
       use_gw_front_igw = .false.
@@ -203,7 +207,8 @@ subroutine phys_ctl_readnl(nlfile)
    call mpi_bcast(use_gw_front_igw,            1,                     mpi_logical,   masterprocid, mpicom, ierr)
    call mpi_bcast(use_gw_convect_dp,           1,                     mpi_logical,   masterprocid, mpicom, ierr)
    call mpi_bcast(use_gw_convect_sh,           1,                     mpi_logical,   masterprocid, mpicom, ierr)
-   call mpi_bcast(use_gw_nlgw,                 1,                     mpi_logical,   masterprocid, mpicom, ierr)
+   call mpi_bcast(use_gw_nlgw_ann,             1,                     mpi_logical,   masterprocid, mpicom, ierr)
+   call mpi_bcast(use_gw_nlgw_unet,            1,                     mpi_logical,   masterprocid, mpicom, ierr)
    call mpi_bcast(cld_macmic_num_steps,        1,                     mpi_integer,   masterprocid, mpicom, ierr)
    call mpi_bcast(offline_driver,              1,                     mpi_logical,   masterprocid, mpicom, ierr)
    call mpi_bcast(convproc_do_aer,             1,                     mpi_logical,   masterprocid, mpicom, ierr)

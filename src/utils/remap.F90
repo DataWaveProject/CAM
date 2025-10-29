@@ -15,6 +15,7 @@ module nlgw_remap_mod
   use perf_mod, only: t_startf, t_stopf
   use cam_logfile, only: iulog
   use cam_abortutils, only: endrun
+  use gw_nlgw_utils, only: phys_vars, lonlat_vars
 
   implicit none
 
@@ -25,19 +26,12 @@ module nlgw_remap_mod
   public :: nlgw_latlon_scatter
   public :: nlgw_regrid_final
 
-  ! these arrays contain the regridded variables of interest for the NN
-  real(r8), dimension(:,:,:), allocatable, public :: u_grid, v_grid, w_grid, t_grid
-  real(r8), dimension(:,:,:), allocatable, public :: utgw_grid, vtgw_grid
-
-  ! arrays on physics grid for use in gw_drag routine
-  real(r8), dimension(:,:,:), allocatable, target :: utgw_phys
-  real(r8), dimension(:,:,:), allocatable, target :: vtgw_phys
-
-
   ! private (for book-keeping in MPI calls)
   integer, allocatable :: recvcnts(:), displs(:)
   integer, allocatable :: beglats(:), beglons(:)
   integer, allocatable :: endlats(:), endlons(:)
+
+  logical, parameter, public :: debug = .true.
 
 
 contains
@@ -45,13 +39,14 @@ contains
   !-----------------------------------------------------------------------------
   ! Initialize arrays and grids for regridding/MPI calls
   !-----------------------------------------------------------------------------
-  subroutine nlgw_regrid_init()
-    use cam_grid_support, only: horiz_coord_t, horiz_coord_create, iMap, cam_grid_register
-    use esmf_lonlat_grid_mod, only: glats, nlat, glons, nlon
+  subroutine nlgw_regrid_init(phys, lonlat, gathered_lonlat)
+    use cam_grid_support,     only: horiz_coord_t, horiz_coord_create, iMap, cam_grid_register
+    use esmf_lonlat_grid_mod, only: glats, glons
     use esmf_lonlat_grid_mod, only: esmf_lonlat_grid_init
-    use esmf_phys_mesh_mod, only: esmf_phys_mesh_init
+    use esmf_phys_mesh_mod,   only: esmf_phys_mesh_init
     use esmf_phys2lonlat_mod, only: esmf_phys2lonlat_init
     use esmf_lonlat2phys_mod, only: esmf_lonlat2phys_init
+    use gw_nlgw_utils,        only: nlon, nlat
 
     integer, parameter :: reg_decomp = 332
 
@@ -62,10 +57,14 @@ contains
     type(horiz_coord_t), pointer :: lat_coord
     integer :: i, j, ind, astat
 
+    type(phys_vars), intent(inout), target :: phys
+    type(lonlat_vars), intent(inout), target :: lonlat
+    type(lonlat_vars), intent(inout), target :: gathered_lonlat
+
     character(len=*), parameter :: subname = 'ctem_diags_reg: '
 
     ! initialize grids and mapping
-    call esmf_lonlat_grid_init(192, 288)
+    call esmf_lonlat_grid_init(nlat, nlon)
     call esmf_phys_mesh_init()
     call esmf_phys2lonlat_init()
     call esmf_lonlat2phys_init()
@@ -129,19 +128,38 @@ contains
     allocate(endlats(npes))
     allocate(endlons(npes))
 
-    ! gathered grids only exist on masterproc
-    if (masterproc) then
-      allocate(u_grid(nlon, nlat, pver))
-      allocate(v_grid(nlon, nlat, pver))
-      allocate(w_grid(nlon, nlat, pver))
-      allocate(t_grid(nlon, nlat, pver))
-      allocate(utgw_grid(nlon, nlat, pver))
-      allocate(vtgw_grid(nlon, nlat, pver))
+    allocate(phys%u(pver,pcols,begchunk:endchunk))
+    allocate(phys%v(pver,pcols,begchunk:endchunk))
+    allocate(phys%theta(pver,pcols,begchunk:endchunk))
+    allocate(phys%w(pver,pcols,begchunk:endchunk))
+    allocate(phys%uflux(pver,pcols,begchunk:endchunk))
+    allocate(phys%vflux(pver,pcols,begchunk:endchunk))
+    allocate(phys%utgw(pver,pcols,begchunk:endchunk))
+    allocate(phys%vtgw(pver,pcols,begchunk:endchunk))
+
+
+    allocate(lonlat%u(beglon:endlon,beglat:endlat,pver))
+    allocate(lonlat%v(beglon:endlon,beglat:endlat,pver))
+    allocate(lonlat%w(beglon:endlon,beglat:endlat,pver))
+    allocate(lonlat%theta(beglon:endlon,beglat:endlat,pver))
+    allocate(lonlat%uflux(beglon:endlon,beglat:endlat,pver))
+    allocate(lonlat%vflux(beglon:endlon,beglat:endlat,pver))
+
+    if (debug) then
+      allocate(phys%pmid(pver,pcols,begchunk:endchunk))
+      allocate(phys%lon(pcols,begchunk:endchunk))
+      allocate(phys%lat(pcols,begchunk:endchunk))
     end if
 
-    allocate(utgw_phys(pver,pcols,begchunk:endchunk))
-    allocate(vtgw_phys(pver,pcols,begchunk:endchunk))
-
+    ! gathered grids only exist on masterproc
+    if (masterproc) then
+      allocate(gathered_lonlat%u(nlon, nlat, pver))
+      allocate(gathered_lonlat%v(nlon, nlat, pver))
+      allocate(gathered_lonlat%w(nlon, nlat, pver))
+      allocate(gathered_lonlat%theta(nlon, nlat, pver))
+      allocate(gathered_lonlat%uflux(nlon, nlat, pver))
+      allocate(gathered_lonlat%vflux(nlon, nlat, pver))
+    end if
   end subroutine nlgw_regrid_init
 
 
@@ -151,14 +169,14 @@ contains
   !   * interpolates them back onto the cubed-sphere grid
   !   * finally re-chunks the data so it can be used elsewhere
   !-----------------------------------------------------------------------------
-  subroutine nlgw_latlon_scatter()
-    use esmf_lonlat_grid_mod, only: nlat, nlon
+  subroutine nlgw_latlon_scatter(phys, lonlat, gathered_lonlat)
+    use gw_nlgw_utils,        only: nlon, nlat
     use esmf_lonlat2phys_mod, only: fields_bundle_t, n_flx_flds, esmf_lonlat2phys_regrid
     use mpishorthand
 
-    ! arrays on latlon grid
-    real(r8), target :: utgw_lonlat(beglon:endlon,beglat:endlat,pver)
-    real(r8), target :: vtgw_lonlat(beglon:endlon,beglat:endlat,pver)
+    type(phys_vars), intent(inout), target :: phys
+    type(lonlat_vars), intent(inout), target :: lonlat
+    type(lonlat_vars), intent(inout), target :: gathered_lonlat
 
     real(r8), allocatable :: flat_array(:)
 
@@ -194,9 +212,8 @@ contains
     call mpibcast(displs, npes, mpiint, 0, mpicom)
     call mpibcast(recvcnts, npes, mpiint, 0, mpicom)
 
-    utgw_lonlat = 0._r8
-    call scatter_3d(u_grid, sendcnt, flat_array, utgw_lonlat(beglon:endlon, beglat:endlat, 1:pver))
-    call scatter_3d(vtgw_grid, sendcnt, flat_array, vtgw_lonlat(beglon:endlon, beglat:endlat, 1:pver))
+    call scatter_3d(gathered_lonlat%uflux, sendcnt, flat_array, lonlat%uflux(beglon:endlon, beglat:endlat, 1:pver))
+    call scatter_3d(gathered_lonlat%vflux, sendcnt, flat_array, lonlat%vflux(beglon:endlon, beglat:endlat, 1:pver))
 
     deallocate(flat_array)
 
@@ -205,17 +222,16 @@ contains
     call t_startf('nlgw_latlon_gather')
     ! this subsection does regridding
 
-    phys_flx_flds(1)%fld => utgw_phys
-    phys_flx_flds(2)%fld => vtgw_phys
+    phys_flx_flds(1)%fld => phys%uflux
+    phys_flx_flds(2)%fld => phys%vflux
 
-    lonlat_flx_flds(1)%fld => utgw_lonlat
-    lonlat_flx_flds(2)%fld => vtgw_lonlat
+    lonlat_flx_flds(1)%fld => lonlat%uflux
+    lonlat_flx_flds(2)%fld => lonlat%vflux
 
     ! actual call to regrid to lon/lat grid
     call esmf_lonlat2phys_regrid(lonlat_flx_flds, phys_flx_flds)
 
     call t_stopf('nlgw_latlon_gather')
-
 
     call t_stopf('nlgw_scatter')
 
@@ -228,27 +244,18 @@ contains
   !   * interpolates cubed-sphere variable to a regular lonlat grid
   !   * uses MPI_Gather to collect regridded data from all ranks to the masterproc
   !-----------------------------------------------------------------------------
-  subroutine nlgw_latlon_gather(phys_state)
-    use esmf_lonlat_grid_mod, only: nlat, nlon
+  subroutine nlgw_latlon_gather(phys_state, phys, lonlat, gathered_lonlat)
+    use gw_nlgw_utils,        only: nlon, nlat
     use esmf_phys2lonlat_mod, only: fields_bundle_t, nflds, esmf_phys2lonlat_regrid
+    use gw_nlgw_utils,        only: p0
+    use physconst,            only: cappa
     use mpishorthand
 
     type(physics_state), intent(in) :: phys_state(begchunk:endchunk)
 
-    ! arrays on physics grid
-    real(r8), target :: u_phys(pver,pcols,begchunk:endchunk)
-    real(r8), target :: v_phys(pver,pcols,begchunk:endchunk)
-    real(r8), target :: w_phys(pver,pcols,begchunk:endchunk)
-    real(r8), target :: t_phys(pver,pcols,begchunk:endchunk)
-    ! for debugging only
-    ! real(r8) :: lat_phys(pcols,begchunk:endchunk)
-    ! real(r8) :: lon_phys(pcols,begchunk:endchunk)
-
-    ! arrays on latlon grid
-    real(r8), target :: u_lonlat(beglon:endlon,beglat:endlat,pver)
-    real(r8), target :: v_lonlat(beglon:endlon,beglat:endlat,pver)
-    real(r8), target :: w_lonlat(beglon:endlon,beglat:endlat,pver)
-    real(r8), target :: t_lonlat(beglon:endlon,beglat:endlat,pver)
+    type(phys_vars), intent(inout), target :: phys
+    type(lonlat_vars), intent(inout), target :: lonlat
+    type(lonlat_vars), intent(inout), target :: gathered_lonlat
 
     real(r8), allocatable :: flat_array(:)
 
@@ -259,20 +266,24 @@ contains
 
     call t_startf('nlgw_gather')
 
+
     call t_startf('nlgw_unchunk')
 
     do lchnk = begchunk,endchunk
        ncol = phys_state(lchnk)%ncol
        do i = 1,ncol
           ! wind components
-          u_phys(:,i,lchnk)    = phys_state(lchnk)%u(i,:)
-          v_phys(:,i,lchnk)    = phys_state(lchnk)%v(i,:)
-          w_phys(:,i,lchnk)    = phys_state(lchnk)%omega(i,:)
-          t_phys(:,i,lchnk)    = phys_state(lchnk)%t(i,:)
+          phys%u(:,i,lchnk)     = phys_state(lchnk)%u(i,:)
+          phys%v(:,i,lchnk)     = phys_state(lchnk)%v(i,:)
+          phys%w(:,i,lchnk)     = phys_state(lchnk)%omega(i,:)
+          phys%theta(:,i,lchnk) = phys_state(lchnk)%t(i,:) * (p0 / phys_state(lchnk)%pmid(i,:)) ** cappa
 
           ! for debugging only
-          ! lat_phys(i,lchnk) = phys_state(lchnk)%lat(i)
-          ! lon_phys(i,lchnk) = phys_state(lchnk)%lon(i)
+          if (debug) then
+            phys%pmid(:,i,lchnk)  = phys_state(lchnk)%pmid(i,:)
+            phys%lat(i,lchnk) = phys_state(lchnk)%lat(i)
+            phys%lon(i,lchnk) = phys_state(lchnk)%lon(i)
+          end if
 
        end do
     end do
@@ -281,15 +292,15 @@ contains
 
     call t_startf('nlgw_latlon_gather')
 
-    physflds(1)%fld => u_phys
-    physflds(2)%fld => v_phys
-    physflds(3)%fld => w_phys
-    physflds(4)%fld => t_phys
+    physflds(1)%fld => phys%u
+    physflds(2)%fld => phys%v
+    physflds(3)%fld => phys%w
+    physflds(4)%fld => phys%theta
 
-    lonlatflds(1)%fld => u_lonlat
-    lonlatflds(2)%fld => v_lonlat
-    lonlatflds(3)%fld => w_lonlat
-    lonlatflds(4)%fld => t_lonlat
+    lonlatflds(1)%fld => lonlat%u
+    lonlatflds(2)%fld => lonlat%v
+    lonlatflds(3)%fld => lonlat%w
+    lonlatflds(4)%fld => lonlat%theta
 
     ! actual call to regrid to lon/lat grid
     call esmf_phys2lonlat_regrid(physflds, lonlatflds)
@@ -317,18 +328,14 @@ contains
     end if
     allocate(flat_array(nlon * nlat * pver))
 
-    call gather_3d(u_lonlat(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, u_grid)
-    call gather_3d(v_lonlat(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, v_grid)
-    call gather_3d(w_lonlat(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, w_grid)
-    call gather_3d(t_lonlat(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, t_grid)
+    call gather_3d(lonlat%u(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, gathered_lonlat%u)
+    call gather_3d(lonlat%v(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, gathered_lonlat%v)
+    call gather_3d(lonlat%w(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, gathered_lonlat%w)
+    call gather_3d(lonlat%theta(beglon:endlon, beglat:endlat, 1:pver), sendcnt, flat_array, gathered_lonlat%theta)
 
     deallocate(flat_array)
 
     call t_stopf('nlgw_mpigather')
-
-    ! TODO
-    ! convert fluxes to tendencies after regridding back to cubed sphere
-    ! that way we dont need pmid
 
     call t_stopf('nlgw_gather')
 
@@ -415,11 +422,15 @@ contains
   !-----------------------------------------------------------------------------
   ! Tidy up (free allocated memory)
   !-----------------------------------------------------------------------------
-  subroutine nlgw_regrid_final()
+  subroutine nlgw_regrid_final(phys, lonlat, gathered_lonlat)
     use esmf_phys2lonlat_mod, only: esmf_phys2lonlat_destroy
     use esmf_lonlat2phys_mod, only: esmf_lonlat2phys_destroy
     use esmf_lonlat_grid_mod, only: esmf_lonlat_grid_destroy
     use esmf_phys_mesh_mod, only: esmf_phys_mesh_destroy
+
+    type(phys_vars), intent(inout), target :: phys
+    type(lonlat_vars), intent(inout), target :: lonlat
+    type(lonlat_vars), intent(inout), target :: gathered_lonlat
 
     call esmf_phys2lonlat_destroy()
     call esmf_lonlat2phys_destroy()
@@ -428,12 +439,34 @@ contains
 
     ! TODO double check ALL deallocates here
     if (masterproc) then
-      deallocate(u_grid)
-      deallocate(v_grid)
-      deallocate(w_grid)
-      deallocate(t_grid)
-      deallocate(utgw_grid)
-      deallocate(vtgw_grid)
+      deallocate(gathered_lonlat%u)
+      deallocate(gathered_lonlat%v)
+      deallocate(gathered_lonlat%w)
+      deallocate(gathered_lonlat%theta)
+      deallocate(gathered_lonlat%uflux)
+      deallocate(gathered_lonlat%vflux)
+    end if
+
+    deallocate(phys%u)
+    deallocate(phys%v)
+    deallocate(phys%theta)
+    deallocate(phys%w)
+    deallocate(phys%uflux)
+    deallocate(phys%vflux)
+    deallocate(phys%utgw)
+    deallocate(phys%vtgw)
+
+    deallocate(lonlat%u)
+    deallocate(lonlat%v)
+    deallocate(lonlat%w)
+    deallocate(lonlat%theta)
+    deallocate(lonlat%uflux)
+    deallocate(lonlat%vflux)
+
+    if (debug) then
+      deallocate(phys%pmid)
+      deallocate(phys%lon)
+      deallocate(phys%lat)
     end if
 
     deallocate(recvcnts)
@@ -442,10 +475,6 @@ contains
     deallocate(beglons)
     deallocate(endlats)
     deallocate(endlons)
-
-    deallocate(utgw_phys)
-    deallocate(vtgw_phys)
-
   end subroutine nlgw_regrid_final
 
 end module nlgw_remap_mod
