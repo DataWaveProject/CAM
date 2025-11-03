@@ -40,7 +40,7 @@ contains
   ! Initialize arrays and grids for regridding/MPI calls
   !-----------------------------------------------------------------------------
   subroutine nlgw_regrid_init(phys, lonlat, gathered_lonlat)
-    use cam_grid_support,     only: horiz_coord_t, horiz_coord_create, iMap, cam_grid_register
+    use cam_grid_support,     only: horiz_coord_t, horiz_coord_create, iMap, cam_grid_register, get_cam_grid_index
     use esmf_lonlat_grid_mod, only: glats, glons
     use esmf_lonlat_grid_mod, only: esmf_lonlat_grid_init
     use esmf_phys_mesh_mod,   only: esmf_phys_mesh_init
@@ -117,7 +117,10 @@ contains
 
     nullify(coord_map)
 
-    call cam_grid_register('ctem_lonlat', reg_decomp, lat_coord, lon_coord, grid_map, unstruct=.false.)
+    ! only create grid if it doesn't exist
+    if (get_cam_grid_index('ctem_lonlat') == -1) then
+      call cam_grid_register('ctem_lonlat', reg_decomp, lat_coord, lon_coord, grid_map, unstruct=.false.)
+    end if
 
     nullify(grid_map)
 

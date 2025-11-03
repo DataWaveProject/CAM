@@ -869,7 +869,7 @@ contains
        call co2_init()
     end if
 
-    ! call gw_init()
+    call gw_init()
 
     call rayleigh_friction_init()
 
@@ -1184,8 +1184,9 @@ contains
 #endif
     use hemco_interface, only: HCOI_Chunk_Run
     use nlgw_remap_mod,  only: nlgw_regrid_init, nlgw_latlon_gather, nlgw_latlon_scatter, nlgw_regrid_final
-    use gw_nlgw_unet,    only: gw_nlgw_unet_init, gw_nlgw_unet_infer, gw_nlgw_unet_finalize
+    use gw_nlgw_unet,    only: gw_nlgw_unet_init, gw_nlgw_unet_infer, gw_nlgw_unet_finalize, utgw_allchunk, vtgw_allchunk
     use gw_nlgw_utils,   only: phys_vars, lonlat_vars, flux_to_forcing
+    use phys_control,    only: use_gw_nlgw_unet
     !
     ! Input arguments
     !
@@ -1253,36 +1254,41 @@ contains
 
     call nlgw_regrid_init(phys, lonlat, gathered_lonlat)
 
-    ! gather data from all procs, all chunks into a global lonlat grid
-    call nlgw_latlon_gather(phys_state, phys, lonlat, gathered_lonlat)
+    if (use_gw_nlgw_unet) then
+      ! gather data from all procs, all chunks into a global lonlat grid
+      call nlgw_latlon_gather(phys_state, phys, lonlat, gathered_lonlat)
 
-    if (masterproc) then
-      call gw_nlgw_unet_init('/glade/u/home/tmeltzer/nonlocal_gwfluxes/era5_training/nlgw_unet_gpu_scripted.pt')
-      ! run UNet model on globally gathered lonlat grid to compute fluxes
-      call gw_nlgw_unet_infer(gathered_lonlat)
-      call gw_nlgw_unet_finalize()
+      if (masterproc) then
+        call gw_nlgw_unet_init('/glade/u/home/tmeltzer/nonlocal_gwfluxes/era5_training/nlgw_unet_gpu_scripted.pt')
+        ! run UNet model on globally gathered lonlat grid to compute fluxes
+        call gw_nlgw_unet_infer(gathered_lonlat)
+        call gw_nlgw_unet_finalize()
+      endif
+
+      ! scatter back to all procs, into chunks and regrid back to phys grid
+      call nlgw_latlon_scatter(phys, lonlat, gathered_lonlat)
+
+      allocate(utgw_allchunk(pcols, pver, begchunk:endchunk))
+      allocate(vtgw_allchunk(pcols, pver, begchunk:endchunk))
+
+      do c = begchunk,endchunk
+        ncol = phys_state(c)%ncol
+        temp_uflux(:ncol,:pver) = transpose(phys%uflux(:pver,:ncol,c))
+        temp_vflux(:ncol,:pver) = transpose(phys%vflux(:pver,:ncol,c))
+
+        ! compute tendencies from fluxes
+        call flux_to_forcing(temp_uflux, temp_utgw, phys_state(c)%pmid, ncol)
+        call flux_to_forcing(temp_vflux, temp_vtgw, phys_state(c)%pmid, ncol)
+        ! store tendencies in unet module so they can be updated in gw_tend
+        utgw_allchunk(:ncol,:pver,c) = temp_utgw(:ncol,:pver)
+        vtgw_allchunk(:ncol,:pver,c) = temp_vtgw(:ncol,:pver)
+      end do
+
+      ! TODO check energy conservation after tendency update
+      ! TODO look at Will Chapman's code
+      ! TODO Ideally update here but for now we do it in tphysac
+      call nlgw_regrid_final(phys, lonlat, gathered_lonlat)
     endif
-
-    ! scatter back to all procs, into chunks and regrid back to phys grid
-    call nlgw_latlon_scatter(phys, lonlat, gathered_lonlat)
-
-    do c = begchunk,endchunk
-      ncol = phys_state(c)%ncol
-      temp_uflux(:ncol,:pver) = transpose(phys%uflux(:pver,:ncol,c))
-      temp_vflux(:ncol,:pver) = transpose(phys%vflux(:pver,:ncol,c))
-
-      ! update tendencies
-      call flux_to_forcing(temp_uflux, temp_utgw, phys_state(c)%pmid, ncol)
-      call flux_to_forcing(temp_vflux, temp_vtgw, phys_state(c)%pmid, ncol)
-      ! ptend%u(:ncol,:pver) = ptend%u(:ncol,:pver) + utgw(:ncol,:pver)
-      ! ptend%v(:ncol,:pver) = ptend%v(:ncol,:pver) + vtgw(:ncol,:pver)
-      ! call update_enegry(ptend)
-    end do
-
-    ! TODO check energy conservation after tendency update
-    ! TODO look at Will Chapman's code
-    call nlgw_regrid_final(phys, lonlat, gathered_lonlat)
-    stop
 
 !$OMP PARALLEL DO PRIVATE (C, NCOL, phys_buffer_chunk)
 
@@ -1300,6 +1306,9 @@ contains
             cam_out(c),                              &
             phys_state(c), phys_tend(c), phys_buffer_chunk)
     end do                    ! Chunk loop
+
+    deallocate(utgw_allchunk)
+    deallocate(vtgw_allchunk)
 
     call t_adj_detailf(-1)
     call t_stopf('ac_physics')
