@@ -768,6 +768,7 @@ contains
     use cam_history,        only: addfld, register_vector_field, add_default
     use cam_budget,         only: cam_budget_init
     use phys_grid_ctem,     only: phys_grid_ctem_init
+    use phys_control,    only: use_gw_nlgw_unet
 
     use ccpp_constituent_prop_mod, only: ccpp_const_props_init
 
@@ -949,6 +950,11 @@ contains
 
     end if
 
+
+    if (use_gw_nlgw_unet) then
+      call addfld('UTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW zonal wind tendency')
+      call addfld('VTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW meridional wind tendency')
+    end if 
     ! Initialize CAM CCPP constituent properties array
     ! for use in CCPP-ized physics schemes:
     call ccpp_const_props_init()
