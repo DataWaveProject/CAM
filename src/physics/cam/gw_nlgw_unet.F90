@@ -10,6 +10,7 @@ use physics_types,  only: physics_state, physics_ptend
 use spmd_utils,     only: mpicom, mstrid=>masterprocid, masterproc, mpi_real8, iam
 use cam_abortutils, only: endrun
 use cam_logfile,    only: iulog
+use cam_history,    only: outfld, addfld
 use physconst,      only: cappa
 use gw_nlgw_utils,  only: lonlat_vars, nlon, nlat
 
@@ -63,6 +64,10 @@ subroutine gw_nlgw_unet_init(model_path)
     ! space for uflux and vflux
     allocate(net_outputs(1, pver*2, nlat, nlon))
   endif
+
+
+  call addfld('UTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW zonal wind tendency')
+  call addfld('VTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW meridional wind tendency')
 
 end subroutine gw_nlgw_unet_init
 
@@ -123,6 +128,9 @@ subroutine gw_nlgw_unet_update_ptend(ptend, lchnk, ncol)
   ! update the tendencies
   ptend%u(:ncol,:pver) = ptend%u(:ncol,:pver) + utgw_allchunk(:ncol,:pver, lchnk)
   ptend%v(:ncol,:pver) = ptend%v(:ncol,:pver) + vtgw_allchunk(:ncol,:pver, lchnk)
+
+  call outfld('UTGW_NL', utgw_allchunk(:ncol,:pver, lchnk), ncol, lchnk)
+  call outfld('VTGW_NL', vtgw_allchunk(:ncol,:pver, lchnk), ncol, lchnk)
 
 end subroutine gw_nlgw_unet_update_ptend
 
