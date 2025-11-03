@@ -17,21 +17,15 @@ use ftorch
 
 implicit none
 
-public :: gw_nlgw_unet_init, gw_nlgw_unet_infer, gw_nlgw_unet_finalize
+public :: gw_nlgw_unet_init, gw_nlgw_unet_infer, gw_nlgw_unet_finalize, gw_nlgw_unet_update_ptend
+
+real(r8), dimension(:,:,:), allocatable, public :: &
+  utgw_allchunk,    &! zonal wind tendency (m/s^2)
+  vtgw_allchunk      ! meridional wind tendency (m/s^2)
 
 private
 
 type(torch_model) :: nlgw_model ! pytorch model
-
-real(r8), dimension(:,:,:), allocatable :: &
-  uflux,   &! zonal wind flux (Pa)
-  vflux,   &! meridional wind flux (Pa)
-  utgw,    &! zonal wind tendency (m/s^2)
-  vtgw      ! meridional wind tendency (m/s^2)
-
-real(r8), dimension(:,:,:), allocatable :: &
-  uflux_grid, &! zonal wind flux (Pa)
-  vflux_grid   ! meridional wind flux (Pa)
 
 real(r4), dimension(:,:,:,:), allocatable, target :: net_inputs
 real(r4), dimension(:,:,:,:), allocatable, target :: net_outputs
@@ -117,6 +111,20 @@ subroutine gw_nlgw_unet_finalize()
   call torch_delete(nlgw_model)
 
 end subroutine gw_nlgw_unet_finalize
+
+subroutine gw_nlgw_unet_update_ptend(ptend, lchnk, ncol)
+
+  use gw_nlgw_utils, only: flux_to_forcing
+
+  ! inputs
+  type(physics_ptend), intent(inout) :: ptend
+  integer, intent(in) :: lchnk, ncol
+
+  ! update the tendencies
+  ptend%u(:ncol,:pver) = ptend%u(:ncol,:pver) + utgw_allchunk(:ncol,:pver, lchnk)
+  ptend%v(:ncol,:pver) = ptend%v(:ncol,:pver) + vtgw_allchunk(:ncol,:pver, lchnk)
+
+end subroutine gw_nlgw_unet_update_ptend
 
 subroutine read_norms()
 

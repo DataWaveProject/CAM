@@ -37,7 +37,8 @@ module gw_drag
   ! These are the actual switches for different gravity wave sources.
   use phys_control,   only: use_gw_oro, use_gw_front, use_gw_front_igw, &
                             use_gw_convect_dp, use_gw_convect_sh,       &
-                            use_simple_phys, use_gw_nlgw_ann
+                            use_simple_phys,                            &
+                            use_gw_nlgw_ann, use_gw_nlgw_unet
 
   use gw_common,      only: GWBand
   use gw_convect,     only: BeresSourceDesc
@@ -45,6 +46,7 @@ module gw_drag
   use gw_ml,          only: gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml_final, &
                             gw_drag_convect_dp_ml
   use gw_nlgw_ann,    only: gw_nlgw_ann_infer, gw_nlgw_ann_init, gw_nlgw_ann_finalize
+  use gw_nlgw_unet,   only: gw_nlgw_unet_update_ptend
 
 ! Typical module header
   implicit none
@@ -1554,6 +1556,10 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
 
   if ( use_gw_nlgw_ann ) then
     call gw_nlgw_ann_infer(state1,ptend)
+  end if
+
+  if ( use_gw_nlgw_unet ) then
+    call gw_nlgw_unet_update_ptend(ptend, lchnk, ncol)
   end if
 
   if (use_gw_convect_dp) then
