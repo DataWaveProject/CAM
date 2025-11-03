@@ -66,9 +66,6 @@ subroutine gw_nlgw_unet_init(model_path)
   endif
 
 
-  call addfld('UTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW zonal wind tendency')
-  call addfld('VTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW meridional wind tendency')
-
 end subroutine gw_nlgw_unet_init
 
 subroutine gw_nlgw_unet_infer(gathered_lonlat)
