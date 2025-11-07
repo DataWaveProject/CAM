@@ -12,6 +12,7 @@ use cam_abortutils, only: endrun
 use cam_logfile,    only: iulog
 use physconst,      only: cappa, pi
 use interpolate_data, only: lininterp
+use cam_history,    only: outfld, addfld
 
 use ftorch
 
@@ -104,10 +105,11 @@ contains
 
 !==========================================================================
 
-subroutine gw_nlgw_dp_ml(state_in, ptend)
+subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
 
   ! inputs
   type(physics_state), intent(in) :: state_in
+  integer,             intent(in)    :: lchnk
   ! outputs
   type(physics_ptend), intent(inout) :: ptend
 
@@ -173,6 +175,13 @@ subroutine gw_nlgw_dp_ml(state_in, ptend)
   call flux_to_forcing(uflux, utgw)
   call flux_to_forcing(vflux, vtgw)
 
+  ! Write UTGW and VTGW to file
+  call outfld('UTGW_NL', utgw, ncol, lchnk)
+  call outfld('VTGW_NL', vtgw, ncol, lchnk)
+
+  call outfld('UFLUX_NL', uflux, ncol, lchnk)
+  call outfld('VFLUX_NL', vflux, ncol, lchnk)
+
   ! update the tendencies
   ptend%u(:ncol,:pver) = ptend%u(:ncol,:pver) + utgw(:ncol,:pver)
   ptend%v(:ncol,:pver) = ptend%v(:ncol,:pver) + vtgw(:ncol,:pver)
@@ -218,6 +227,11 @@ subroutine gw_nlgw_dp_init(model_path)
   if (masterproc) then
      write(iulog,*)'nlgw model loaded from: ', model_path
   endif
+
+  call addfld('UTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW zonal wind tendency')
+  call addfld('VTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW meridional wind tendency')
+  call addfld('UFLUX_NL', (/ 'lev' /), 'A', 'm/s', 'Nonlinear GW zonal wind flux')
+  call addfld('VFLUX_NL', (/ 'lev' /), 'A', 'm/s', 'Nonlinear GW meridional wind flux')
 
 end subroutine gw_nlgw_dp_init
 
