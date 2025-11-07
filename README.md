@@ -55,6 +55,7 @@ Details on creating a case can be found
 [here](https://ncar.github.io/CAM/doc/build/html/CAM6.0_users_guide/building-and-running-cam.html) on the NCAR website.
 For this work we are using the following testcase which can be set up by running:
 ```
+cd cime/scripts
 ./create_newcase --case <path_to_testcase_directory> --compset FMTHIST --res ne30pg3_ne30pg3_mg17 --project XXXXXXX --machine derecho
 ```
 from `CAM/cime/scripts/`.
@@ -87,6 +88,8 @@ the case directory as required.
 > The following settings are provided as an example. These should be tailored to your particular experiment. For more
 > information, please see the descriptions below.
 
+#### ML parameterisation for convection
+
 To run CAM using the NN to predict gravity waves and the physics-based model to _piggyback_, we can set the following settings:
 ```fortran
 gw_convect_dp_ml=.true.
@@ -112,6 +115,23 @@ gw_convect_dp_ml_norms='/path/to/norms'
 * `gw_convect_dp_ml_norms`
 
    Absolute filepath to the deep convection gravity wave normalisation weights (NetCDF) used when `gw_convect_dp_ml` is set to `.true.`.
+
+#### ML parameterisation for non local gravity waves
+
+To run CAM using the non local gravity wave ML model to replace all parameterisations use the following configuration
+```fortran
+use_gw_nlgw=.true.
+gw_nlgw_model_path='/path/to/nlgw-scripted-model.pt'
+```
+
+* `use_gw_nlgw` (`logical`)
+
+   Whether or not to use the ML scheme for non local gravity waves. Default: `.false.`
+
+* `gw_nlgw_model_path`
+
+   Absolute filepath to the non local gravity wave neural net used when `use_gw_nlgw` is set to `.true.` (`.pt`
+   extension).
 
 > [!TIP]
 > Consider adding the following to generate output diagnostics of variables as desired.

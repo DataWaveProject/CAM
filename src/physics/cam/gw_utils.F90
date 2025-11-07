@@ -3,6 +3,7 @@ module gw_utils
 !
 ! This module contains utility code for the gravity wave modules.
 !
+use, intrinsic :: iso_fortran_env, only : real32
 
 implicit none
 private
@@ -10,6 +11,8 @@ save
 
 ! Real kind for gravity wave parameterization.
 integer, public, parameter :: r8 = selected_real_kind(12)
+integer, public, parameter :: r4 = real32
+
 
 ! Public interface
 public :: get_unit_vector

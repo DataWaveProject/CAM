@@ -1332,6 +1332,14 @@ Whether or not to enable gravity waves produced by shallow convection.
 Default: .false.
 </entry>
 
+<entry id="use_gw_nlgw" type="logical" category="gw_drag"
+       group="phys_ctl_nl" valid_values="" >
+Whether or not to enable gravity waves produced by non-local gravity
+wave ML model.
+Default: set by build-namelist.
+</entry>
+
+
 <entry id="pgwv" type="integer" category="gw_drag"
        group="gw_drag_nl" valid_values="" >
 Gravity wave spectrum dimension (wave numbers are from -pgwv to pgwv).
@@ -1418,6 +1426,12 @@ Absolute filepath to the deep convection gravity wave neural net used when
   If `gw_convect_dp_ml` is true it will be the ML scheme, if false it will be the
   Beres scheme.
 Default: .false.
+</entry>
+
+<entry id="gw_nlgw_model_path" type="char*132" input_pathname="abs" category="gw_drag"
+       group="gw_drag_nl" valid_values="" >
+Absolute filepath to the non local gravity wave traced model (.pt)
+used when `use_gw_nlgw` is set to `.true.`.
 </entry>
 
 <entry id="effgw_cm" type="real" category="gw_drag"
