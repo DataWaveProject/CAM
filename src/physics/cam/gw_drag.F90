@@ -46,7 +46,6 @@ module gw_drag
   use gw_ml,          only: gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml_final, &
                             gw_drag_convect_dp_ml
   use gw_nlgw_ann,    only: gw_nlgw_ann_infer, gw_nlgw_ann_init, gw_nlgw_ann_finalize
-  use gw_nlgw_unet,   only: gw_nlgw_unet_update_ptend
 
 ! Typical module header
   implicit none
@@ -1556,10 +1555,6 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
 
   if ( use_gw_nlgw_ann ) then
     call gw_nlgw_ann_infer(state1,ptend,lchnk)
-  end if
-
-  if ( use_gw_nlgw_unet ) then
-    call gw_nlgw_unet_update_ptend(ptend, lchnk, ncol)
   end if
 
   if (use_gw_convect_dp) then

@@ -18,11 +18,7 @@ use ftorch
 
 implicit none
 
-public :: gw_nlgw_unet_init, gw_nlgw_unet_infer, gw_nlgw_unet_finalize, gw_nlgw_unet_update_ptend
-
-real(r8), dimension(:,:,:), allocatable, public :: &
-  utgw_allchunk,    &! zonal wind tendency (m/s^2)
-  vtgw_allchunk      ! meridional wind tendency (m/s^2)
+public :: gw_nlgw_unet_init, gw_nlgw_unet_infer, gw_nlgw_unet_finalize, gw_nlgw_unet_set_ptend
 
 private
 
@@ -114,22 +110,37 @@ subroutine gw_nlgw_unet_finalize()
 
 end subroutine gw_nlgw_unet_finalize
 
-subroutine gw_nlgw_unet_update_ptend(ptend, lchnk, ncol)
+subroutine gw_nlgw_unet_set_ptend(phys_state, ptend, utgw, vtgw)
+  ! initiailize and update tendencies
+  use physconst    ,only: cpair
+  use physics_types,only: physics_state,physics_ptend,physics_ptend_init
+  use constituents ,only: cnst_get_ind,pcnst
+  use ppgrid       ,only: pver,pcols,begchunk,endchunk
+  use cam_history  ,only: outfld
 
-  use gw_nlgw_utils, only: flux_to_forcing
+  type(physics_state), intent(in) :: phys_state
+  type(physics_ptend), intent(out):: ptend
+  real(r8), dimension(pcols,pver), intent(in) :: utgw, vtgw
 
-  ! inputs
-  type(physics_ptend), intent(inout) :: ptend
-  integer, intent(in) :: lchnk, ncol
+  ! local vars
+  integer indw,ncol,lchnk
+  logical lq(pcnst)
 
-  ! update the tendencies
-  ptend%u(:ncol,:pver) = ptend%u(:ncol,:pver) + utgw_allchunk(:ncol,:pver, lchnk)
-  ptend%v(:ncol,:pver) = ptend%v(:ncol,:pver) + vtgw_allchunk(:ncol,:pver, lchnk)
+  call cnst_get_ind('Q',indw)
+  lq(:)   =.false.
+  lq(indw)=.true.
+  call physics_ptend_init(ptend,phys_state%psetcols,'cb24cnn',lu=.true.,lv=.true.,ls=.true.,lq=lq)
 
-  call outfld('UTGW_NL', utgw_allchunk(:ncol,:pver, lchnk), ncol, lchnk)
-  call outfld('VTGW_NL', vtgw_allchunk(:ncol,:pver, lchnk), ncol, lchnk)
+  lchnk=phys_state%lchnk
+  ncol =phys_state%ncol
+  ptend%u(:ncol,:pver) = ptend%u(:ncol,:pver) + utgw(:ncol,:pver)
+  ptend%v(:ncol,:pver) = ptend%v(:ncol,:pver) + vtgw(:ncol,:pver)
+  ! ptend%s(:ncol,:pver)     = cb24cnn_Sstep(:ncol,:pver,lchnk)*.35
+  ! ptend%q(:ncol,:pver,indw)= cb24cnn_Qstep(:ncol,:pver,lchnk)*.35
 
-end subroutine gw_nlgw_unet_update_ptend
+  call outfld('UTGW_NL', utgw(:ncol,:pver), ncol, lchnk)
+  call outfld('VTGW_NL', vtgw(:ncol,:pver), ncol, lchnk)
+end subroutine gw_nlgw_unet_set_ptend
 
 subroutine read_norms()
 
