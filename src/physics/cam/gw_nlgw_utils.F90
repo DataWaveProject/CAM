@@ -10,6 +10,8 @@ public :: phys_vars, lonlat_vars
 integer, parameter, public :: p0 = 100000 ! 1000 hPa (Pa)
 integer, parameter, public :: nlon = 288  ! number of longitude points on lonlat grid
 integer, parameter, public :: nlat = 192  ! number of latitude points on lonlat grid
+character(len=132), public :: gw_nlgw_model_path_ann
+character(len=132), public :: gw_nlgw_model_path_unet
 
 private
 

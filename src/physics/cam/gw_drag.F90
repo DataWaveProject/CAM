@@ -204,8 +204,6 @@ module gw_drag
   logical :: gw_convect_dp_ml_compare = .false.
   character(len=132) :: gw_convect_dp_ml_net_path
   character(len=132) :: gw_convect_dp_ml_norms
-  character(len=132) :: gw_nlgw_model_path_ann
-  character(len=132) :: gw_nlgw_model_path_unet
 
 !==========================================================================
 contains
@@ -218,6 +216,7 @@ subroutine gw_drag_readnl(nlfile)
   use spmd_utils,      only: mpicom, mstrid=>masterprocid, mpi_real8, &
                              mpi_character, mpi_logical, mpi_integer
   use gw_rdg,          only: gw_rdg_readnl
+  use gw_nlgw_utils,   only: gw_nlgw_model_path_ann, gw_nlgw_model_path_unet
 
   ! File containing namelist input.
   character(len=*), intent(in) :: nlfile
@@ -430,6 +429,7 @@ subroutine gw_init()
 
   use gw_common,  only: gw_common_init
   use gw_front,   only: gaussian_cm_desc
+  use gw_nlgw_utils, only: gw_nlgw_model_path_ann
 
   !---------------------------Local storage-------------------------------
 

@@ -1191,7 +1191,7 @@ contains
     use hemco_interface, only: HCOI_Chunk_Run
     use nlgw_remap_mod,  only: nlgw_regrid_init, nlgw_latlon_gather, nlgw_latlon_scatter, nlgw_regrid_final
     use gw_nlgw_unet,    only: gw_nlgw_unet_init, gw_nlgw_unet_infer, gw_nlgw_unet_finalize, gw_nlgw_unet_set_ptend
-    use gw_nlgw_utils,   only: phys_vars, lonlat_vars, flux_to_forcing
+    use gw_nlgw_utils,   only: phys_vars, lonlat_vars, flux_to_forcing, gw_nlgw_model_path_unet
     use phys_control,    only: use_gw_nlgw_unet
     use time_manager,    only: get_nstep
     use check_energy,    only: check_energy_chng
@@ -1272,7 +1272,7 @@ contains
       call nlgw_latlon_gather(phys_state, phys, lonlat, gathered_lonlat)
 
       if (masterproc) then
-        call gw_nlgw_unet_init('/glade/u/home/tmeltzer/nonlocal_gwfluxes/era5_training/nlgw_unet_gpu_scripted.pt')
+        call gw_nlgw_unet_init(gw_nlgw_model_path_unet)
         ! run UNet model on globally gathered lonlat grid to compute fluxes
         call gw_nlgw_unet_infer(gathered_lonlat)
         call gw_nlgw_unet_finalize()
