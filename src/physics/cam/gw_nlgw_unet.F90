@@ -129,7 +129,7 @@ subroutine gw_nlgw_unet_set_ptend(phys_state, ptend, utgw, vtgw)
   call cnst_get_ind('Q',indw)
   lq(:)   =.false.
   lq(indw)=.true.
-  call physics_ptend_init(ptend,phys_state%psetcols,'cb24cnn',lu=.true.,lv=.true.,ls=.true.,lq=lq)
+  call physics_ptend_init(ptend,phys_state%psetcols,'nlgw_unet',lu=.true.,lv=.true.,ls=.true.,lq=lq)
 
   lchnk=phys_state%lchnk
   ncol =phys_state%ncol
