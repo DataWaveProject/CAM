@@ -160,6 +160,55 @@ The case can be run with `./case.submit` from the case directory.
 > To leave all output in `$SCRATCH/case/` switch 'short term archiving' off by running `./xmlchange DOUT_S=FALSE` in the
 > case directory to change `DOUT_S` from `TRUE` to `FALSE`.
 
+#### Output useful variables
+
+CAM has been configured to output tendencies and fluxes to file. These are named `UTGW_NL`, `VTGW_NL` i.e. tendencies in u and v directions. Similarly, fluxes are named `UFLUX_NL` and `VFLUX_NL`.
+
+For instance, add the following to `user_nl_cam`: 
+
+```
+nhtfrq=0,5
+mfilt=1,60
+avgflag_pertape = 'A','I'
+
+fincl2 = 'U','V','T','UTGW_NL','VTGW_NL','UFLUX_NL','VFLUX_NL'
+```
+
+This outputs to two history files, 0 and 1, where `fincl1` controls fields in h0 and `fincl2` controls fields in h1. In h0, contains the default variables or fields. 
+
+We output to h1 a reduced set at a higher frequency. In this case, the selected variables are written every 5 timesteps, and then output to disk once 60 time samples have been buffered. See documentation on customising CAM output [here](https://ncar.github.io/CESM-Tutorial/notebooks/namelist/output/output_cam.html). In the above instance files will be output in the following format `<job-name>.cam.h1.1979-01-01-[00000,21600,43200...].nc`.
+
+#### Long runs
+
+Long runs can be achieved by following the documentation [here](https://ncar.github.io/CESM-Tutorial/notebooks/modifications/xml/run_length/restarting.html).
+
+The below `user_nl_cam` content sets up a long run that automatically resubmits. Of course, resubmission can be performed manually by removing the `RESUBMIT` option and toggling `CONTINUE_RUN` to `True` after the first run completes. 
+
+```
+! Restart behaviour
+CONTINUE_RUN = FALSE   ! First run starts from initial conditions.
+                       ! CESM RESUBMIT machinery will auto-set TRUE for follow-up jobs.
+                       ! Set to TRUE only for manual restarts after a crash/timeout.
+
+! Automatically resubmit 
+RESUBMIT = 9 ! Automatically resubmit 9 times (5 years total)
+
+REST_DATE: -999 ! Don’t force any special date; just use REST_OPTION/REST_N
+REST_OPTION: nmonths 
+REST_N: 3
+
+STOP_OPTION: nmonths
+STOP_N: 6 ! Each job runs for 6 months only to provide plenty of buffer in 12 hour job window
+
+! Sensible output frequencies
+nhtfrq=0,-336 ! Every two weeks
+mfilt=1,1
+avgflag_pertape = 'A','I'
+
+fincl2 = 'U','V','T','UTGW_NL','VTGW_NL','UFLUX_NL','VFLUX_NL'
+```
+
+
 ## NOTE: This is **unsupported** development code and is subject to the [CESM developer's agreement](http://www.cgd.ucar.edu/cseg/development-code.html).
 
 ### CAM Documentation - https://ncar.github.io/CAM/doc/build/html/index.html
