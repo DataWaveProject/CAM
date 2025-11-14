@@ -182,24 +182,21 @@ We output to h1 a reduced set at a higher frequency. In this case, the selected 
 
 Long runs can be achieved by following the documentation [here](https://ncar.github.io/CESM-Tutorial/notebooks/modifications/xml/run_length/restarting.html).
 
-The below `user_nl_cam` content sets up a long run that automatically resubmits. Of course, resubmission can be performed manually by removing the `RESUBMIT` option and toggling `CONTINUE_RUN` to `True` after the first run completes. 
+The below sequence of `xmlchange` commands sets up a long run that automatically resubmits until 5 years have elapsed. Of course, resubmission can be performed manually by setting `RESUBMIT` to 0 and toggling `CONTINUE_RUN` to `True` after the first run completes. 
 
 ```
-! Restart behaviour
-CONTINUE_RUN = FALSE   ! First run starts from initial conditions.
-                       ! CESM RESUBMIT machinery will auto-set TRUE for follow-up jobs.
-                       ! Set to TRUE only for manual restarts after a crash/timeout.
+./xmlchange CONTINUE_RUN=FALSE     # first run from initial conditions
+./xmlchange RESUBMIT=9             # 10 segments total  => 5 years (10 × 6 months)
 
-! Automatically resubmit 
-RESUBMIT = 9 ! Automatically resubmit 9 times (5 years total)
+./xmlchange STOP_OPTION='nmonths'
+./xmlchange STOP_N=6               # each job = 6 months
 
-REST_DATE: -999 ! Don’t force any special date; just use REST_OPTION/REST_N
-REST_OPTION: nmonths 
-REST_N: 3
+./xmlchange REST_OPTION='nmonths'
+./xmlchange REST_N=3               # restart every 3 months
+```
 
-STOP_OPTION: nmonths
-STOP_N: 6 ! Each job runs for 6 months only to provide plenty of buffer in 12 hour job window
-
+And for long runs, sensible settings of output frequencies in `user_nl_cam` look like: 
+```
 ! Sensible output frequencies
 nhtfrq=0,-336 ! Every two weeks
 mfilt=1,1
