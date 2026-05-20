@@ -316,6 +316,7 @@ module cam_grid_support
   public     :: cam_grid_compute_patch
   ! Functions for dealing with grid areas
   public     :: cam_grid_get_areawt
+  public     :: get_cam_grid_index
 
   interface cam_grid_attribute_register
     module procedure add_cam_grid_attribute_0d_int
@@ -352,7 +353,6 @@ module cam_grid_support
     module procedure cam_grid_write_dist_array_3d_real
   end interface
 
-  ! Private interfaces
   interface get_cam_grid_index
     module procedure get_cam_grid_index_char ! For lookup by name
     module procedure get_cam_grid_index_int  ! For lookup by ID

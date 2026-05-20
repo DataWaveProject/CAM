@@ -1,4 +1,4 @@
-module gw_nlgw
+module gw_nlgw_ann
 
 !
 ! This module predicts gravity wave forcings via PyTorch NNs trained to include non-local gravity wave effects
@@ -11,6 +11,7 @@ use spmd_utils,     only: mpicom, mstrid=>masterprocid, masterproc, mpi_real8, i
 use cam_abortutils, only: endrun
 use cam_logfile,    only: iulog
 use physconst,      only: cappa, pi
+use gw_nlgw_utils,  only: p0
 use interpolate_data, only: lininterp
 use cam_history,    only: outfld, addfld
 
@@ -18,11 +19,9 @@ use ftorch
 
 implicit none
 
-public :: gw_nlgw_dp_ml, gw_nlgw_dp_init, gw_nlgw_dp_finalize
+public :: gw_nlgw_ann_infer, gw_nlgw_ann_init, gw_nlgw_ann_finalize
 
 private
-
-integer, parameter :: p0 = 100000 ! 1000 hPa (Pa)
 
 type(torch_model) :: nlgw_model ! pytorch model
 
@@ -105,7 +104,9 @@ contains
 
 !==========================================================================
 
-subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
+subroutine gw_nlgw_ann_infer(state_in, ptend, lchnk)
+
+  use gw_nlgw_utils, only: flux_to_forcing
 
   ! inputs
   type(physics_state), intent(in) :: state_in
@@ -172,8 +173,8 @@ subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
   call extract_output()
   call denormalise_data()
 
-  call flux_to_forcing(uflux, utgw)
-  call flux_to_forcing(vflux, vtgw)
+  call flux_to_forcing(uflux, utgw, pmid, ncol)
+  call flux_to_forcing(vflux, vtgw, pmid, ncol)
 
   ! Write UTGW and VTGW to file
   call outfld('UTGW_NL', utgw, ncol, lchnk)
@@ -209,10 +210,10 @@ subroutine gw_nlgw_dp_ml(state_in, ptend, lchnk)
   deallocate(net_inputs)
   deallocate(net_outputs)
 
-end subroutine gw_nlgw_dp_ml
+end subroutine gw_nlgw_ann_infer
 
 
-subroutine gw_nlgw_dp_init(model_path)
+subroutine gw_nlgw_ann_init(model_path)
 
   character(len=*), intent(in) :: model_path  ! Filepath to PyTorch Torchscript net
   integer :: device_id
@@ -233,17 +234,17 @@ subroutine gw_nlgw_dp_init(model_path)
   call addfld('UFLUX_NL', (/ 'lev' /), 'A', 'm/s', 'Nonlinear GW zonal wind flux')
   call addfld('VFLUX_NL', (/ 'lev' /), 'A', 'm/s', 'Nonlinear GW meridional wind flux')
 
-end subroutine gw_nlgw_dp_init
+end subroutine gw_nlgw_ann_init
 
 
-subroutine gw_nlgw_dp_finalize()
+subroutine gw_nlgw_ann_finalize()
 
   deallocate(net_inputs)
   deallocate(net_outputs)
   ! free model memory
   call torch_delete(nlgw_model)
 
-end subroutine gw_nlgw_dp_finalize
+end subroutine gw_nlgw_ann_finalize
 
 
 subroutine read_norms()
@@ -273,6 +274,7 @@ subroutine read_norms()
 end subroutine read_norms
 
 subroutine normalise_data()
+  use gw_nlgw_utils, only: cbrt
 
   ! lat lon are in radians (convert to degrees first)
   lat = lat * 180. / pi
@@ -377,31 +379,4 @@ subroutine denormalise_data()
 
 end subroutine denormalise_data
 
-elemental function cbrt(a) result(root)
-  real(r8), intent(in) :: a
-  real(r8), parameter :: one_third = 1._r8/3._r8
-  real(r8) :: root
-  root = sign(abs(a)**one_third, a)
-end function cbrt
-
-subroutine flux_to_forcing(flux, forcing)
-
-  real(r8), intent(in), dimension(:,:) :: flux
-  real(r8), intent(out), dimension(:,:) :: forcing ! forcing = -d(u'\omega')/d(p), units = m/s^2
-
-  integer :: level, col
-
-  ! convert fluxes to tendencies
-  ! pressure profile must be in Pascals
-
-  do col = 1, ncol
-    forcing(col,1) = -1*(flux(col,2) - flux(col,1))/(pmid(col,2) - pmid(col,1))
-    do level = 2, pver-1
-      forcing(col,level) = -1*(flux(col,level+1) - flux(col,level-1)) / (pmid(col,level)*(log(pmid(col,level+1)) - log(pmid(col,level-1))))
-    end do
-    forcing(col,pver) = -1*(flux(col,pver) - flux(col,pver-1)) / (pmid(col,pver) - pmid(col,pver-1))
-  end do
-
-end subroutine flux_to_forcing
-
-end module gw_nlgw
+end module gw_nlgw_ann

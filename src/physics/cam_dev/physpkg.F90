@@ -768,6 +768,7 @@ contains
     use cam_history,        only: addfld, register_vector_field, add_default
     use cam_budget,         only: cam_budget_init
     use phys_grid_ctem,     only: phys_grid_ctem_init
+    use phys_control,    only: use_gw_nlgw_unet
 
     use ccpp_constituent_prop_mod, only: ccpp_const_props_init
 
@@ -949,6 +950,11 @@ contains
 
     end if
 
+
+    if (use_gw_nlgw_unet) then
+      call addfld('UTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW zonal wind tendency')
+      call addfld('VTGW_NL', (/ 'lev' /), 'A', 'm/s2', 'Nonlinear GW meridional wind tendency')
+    end if 
     ! Initialize CAM CCPP constituent properties array
     ! for use in CCPP-ized physics schemes:
     call ccpp_const_props_init()
@@ -1183,6 +1189,12 @@ contains
     use metdata,         only: get_met_srf2
 #endif
     use hemco_interface, only: HCOI_Chunk_Run
+    use nlgw_remap_mod,  only: nlgw_regrid_init, nlgw_latlon_gather, nlgw_latlon_scatter, nlgw_regrid_final
+    use gw_nlgw_unet,    only: gw_nlgw_unet_init, gw_nlgw_unet_infer, gw_nlgw_unet_finalize, gw_nlgw_unet_set_ptend
+    use gw_nlgw_utils,   only: phys_vars, lonlat_vars, flux_to_forcing, gw_nlgw_model_path_unet
+    use phys_control,    only: use_gw_nlgw_unet
+    use time_manager,    only: get_nstep
+    use check_energy,    only: check_energy_chng
     !
     ! Input arguments
     !
@@ -1202,10 +1214,19 @@ contains
     !
     integer :: c                                 ! chunk index
     integer :: ncol                              ! number of columns
+    integer :: nstep                             ! current timestep number
     type(physics_buffer_desc),pointer, dimension(:)     :: phys_buffer_chunk
+
+    ! for ML UNet model
+    type(physics_ptend)             :: ptend                                        ! parameterization tendencies for nlgw
+    real(r8)                        :: zero(pcols)                                  ! array of zeros
+    type(phys_vars), target         :: phys
+    type(lonlat_vars), target       :: lonlat, gathered_lonlat
+    real(r8), dimension(pcols,pver) :: temp_uflux, temp_vflux, temp_utgw, temp_vtgw
     !
     ! If exit condition just return
     !
+    nstep = get_nstep()
 
     if(single_column.and.scm_crm_mode) then
        call diag_deallocate()
@@ -1243,6 +1264,40 @@ contains
     call t_barrierf('sync_ac_physics', mpicom)
     call t_startf ('ac_physics')
     call t_adj_detailf(+1)
+
+    call nlgw_regrid_init(phys, lonlat, gathered_lonlat)
+
+    if (use_gw_nlgw_unet) then
+      ! gather data from all procs, all chunks into a global lonlat grid
+      call nlgw_latlon_gather(phys_state, phys, lonlat, gathered_lonlat)
+
+      if (masterproc) then
+        call gw_nlgw_unet_init(gw_nlgw_model_path_unet)
+        ! run UNet model on globally gathered lonlat grid to compute fluxes
+        call gw_nlgw_unet_infer(gathered_lonlat)
+        call gw_nlgw_unet_finalize()
+      endif
+
+      ! scatter back to all procs, into chunks and regrid back to phys grid
+      call nlgw_latlon_scatter(phys, lonlat, gathered_lonlat)
+
+      do c = begchunk,endchunk
+        ncol = phys_state(c)%ncol
+        temp_uflux(:ncol,:pver) = transpose(phys%uflux(:pver,:ncol,c))
+        temp_vflux(:ncol,:pver) = transpose(phys%vflux(:pver,:ncol,c))
+
+        ! compute tendencies from fluxes
+        call flux_to_forcing(temp_uflux, temp_utgw, phys_state(c)%pmid, ncol)
+        call flux_to_forcing(temp_vflux, temp_vtgw, phys_state(c)%pmid, ncol)
+        ! update ptend
+        call gw_nlgw_unet_set_ptend(phys_state(c), ptend, temp_utgw, temp_vtgw)
+        ! update state and check energy change
+        call physics_update(phys_state(c), ptend, ztodt, phys_tend(c))
+        call check_energy_chng(phys_state(c), phys_tend(c), "nlgw_unet", nstep, ztodt, zero, zero, zero, zero)
+      end do
+
+      call nlgw_regrid_final(phys, lonlat, gathered_lonlat)
+    endif
 
 !$OMP PARALLEL DO PRIVATE (C, NCOL, phys_buffer_chunk)
 

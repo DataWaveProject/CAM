@@ -37,14 +37,15 @@ module gw_drag
   ! These are the actual switches for different gravity wave sources.
   use phys_control,   only: use_gw_oro, use_gw_front, use_gw_front_igw, &
                             use_gw_convect_dp, use_gw_convect_sh,       &
-                            use_simple_phys, use_gw_nlgw
+                            use_simple_phys,                            &
+                            use_gw_nlgw_ann, use_gw_nlgw_unet
 
   use gw_common,      only: GWBand
   use gw_convect,     only: BeresSourceDesc
   use gw_front,       only: CMSourceDesc
   use gw_ml,          only: gw_drag_convect_dp_ml_init, gw_drag_convect_dp_ml_final, &
                             gw_drag_convect_dp_ml
-  use gw_nlgw,        only: gw_nlgw_dp_ml, gw_nlgw_dp_init, gw_nlgw_dp_finalize
+  use gw_nlgw_ann,    only: gw_nlgw_ann_infer, gw_nlgw_ann_init, gw_nlgw_ann_finalize
 
 ! Typical module header
   implicit none
@@ -203,7 +204,6 @@ module gw_drag
   logical :: gw_convect_dp_ml_compare = .false.
   character(len=132) :: gw_convect_dp_ml_net_path
   character(len=132) :: gw_convect_dp_ml_norms
-  character(len=132) :: gw_nlgw_model_path
 
 !==========================================================================
 contains
@@ -216,6 +216,7 @@ subroutine gw_drag_readnl(nlfile)
   use spmd_utils,      only: mpicom, mstrid=>masterprocid, mpi_real8, &
                              mpi_character, mpi_logical, mpi_integer
   use gw_rdg,          only: gw_rdg_readnl
+  use gw_nlgw_utils,   only: gw_nlgw_model_path_ann, gw_nlgw_model_path_unet
 
   ! File containing namelist input.
   character(len=*), intent(in) :: nlfile
@@ -248,7 +249,7 @@ subroutine gw_drag_readnl(nlfile)
        gw_top_taper, front_gaussian_width, &
        gw_convect_dp_ml, gw_convect_dp_ml_compare, &
        gw_convect_dp_ml_net_path, gw_convect_dp_ml_norms, &
-       gw_nlgw_model_path
+       gw_nlgw_model_path_ann, gw_nlgw_model_path_unet
   !----------------------------------------------------------------------
 
   if (use_simple_phys) return
@@ -364,8 +365,11 @@ subroutine gw_drag_readnl(nlfile)
   call mpi_bcast(gw_convect_dp_ml_norms, len(gw_convect_dp_ml_norms), mpi_character, mstrid, mpicom, ierr)
   if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_convect_dp_ml_norms")
 
-  call mpi_bcast(gw_nlgw_model_path, len(gw_nlgw_model_path), mpi_character, mstrid, mpicom, ierr)
-  if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_nlgw_model_path")
+  call mpi_bcast(gw_nlgw_model_path_ann, len(gw_nlgw_model_path_ann), mpi_character, mstrid, mpicom, ierr)
+  if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_nlgw_model_path_ann")
+
+  call mpi_bcast(gw_nlgw_model_path_unet, len(gw_nlgw_model_path_unet), mpi_character, mstrid, mpicom, ierr)
+  if (ierr /= 0) call endrun(sub//": FATAL: mpi_bcast: gw_nlgw_model_path_unet")
 
   ! Check if fcrit2 was set.
   call shr_assert(fcrit2 /= unset_r8, &
@@ -425,6 +429,7 @@ subroutine gw_init()
 
   use gw_common,  only: gw_common_init
   use gw_front,   only: gaussian_cm_desc
+  use gw_nlgw_utils, only: gw_nlgw_model_path_ann
 
   !---------------------------Local storage-------------------------------
 
@@ -577,8 +582,8 @@ subroutine gw_init()
   call shr_assert(trim(errstring) == "", "gw_common_init: "//errstring// &
        errMsg(__FILE__, __LINE__))
 
-  if ( use_gw_nlgw ) then
-    call gw_nlgw_dp_init(gw_nlgw_model_path)
+  if ( use_gw_nlgw_ann ) then
+    call gw_nlgw_ann_init(gw_nlgw_model_path_ann)
   end if
 
   if ( use_gw_oro ) then
@@ -1298,8 +1303,8 @@ subroutine gw_final()
   if ((gw_convect_dp_ml) .or. (gw_convect_dp_ml_compare)) then
      call gw_drag_convect_dp_ml_final()
   endif
-  if ( use_gw_nlgw ) then
-    call gw_nlgw_dp_finalize()
+  if ( use_gw_nlgw_ann ) then
+    call gw_nlgw_ann_finalize()
   end if
 end subroutine gw_final
 
@@ -1548,8 +1553,8 @@ subroutine gw_tend(state, pbuf, dt, ptend, cam_in, flx_heat)
   egwdffi_tot = 0._r8
   flx_heat = 0._r8
 
-  if ( use_gw_nlgw ) then
-    call gw_nlgw_dp_ml(state1,ptend,lchnk)
+  if ( use_gw_nlgw_ann ) then
+    call gw_nlgw_ann_infer(state1,ptend,lchnk)
   end if
 
   if (use_gw_convect_dp) then
