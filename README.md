@@ -144,6 +144,13 @@ gw_nlgw_model_path_unet='/path/to/unet-scripted-model.pt'
    Absolute filepath to the non local gravity wave neural net used when `use_gw_nlgw` is set to `.true.` (`.pt`
    extension).
 
+To regrid, gather and scatter the atmospheric state onto a regular lon/lat grid for the UNET inference, specify the ESMF mesh using the `cam_physics_mesh` namelist parameter in `user_nl_cam`:
+
+```
+! for regridding
+cam_physics_mesh = '$ATM_DOMAIN_MESH'
+```
+
 > [!TIP]
 > Consider adding the following to generate output diagnostics of variables as desired.
 >
